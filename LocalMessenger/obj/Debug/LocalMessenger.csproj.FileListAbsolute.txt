@@ -1,4 +1,0 @@
-D:\Repository\Hmaster20\_GitHub\_C#\LocalMessenger\LocalMessenger\obj\Debug\LocalMessenger.csprojAssemblyReference.cache
-D:\Repository\Hmaster20\_GitHub\_C#\LocalMessenger\LocalMessenger\obj\Debug\LocalMessenger.Properties.Resources.resources
-D:\Repository\Hmaster20\_GitHub\_C#\LocalMessenger\LocalMessenger\obj\Debug\LocalMessenger.csproj.GenerateResource.cache
-D:\Repository\Hmaster20\_GitHub\_C#\LocalMessenger\LocalMessenger\obj\Debug\LocalMessenger.csproj.CoreCompileInputs.cache
