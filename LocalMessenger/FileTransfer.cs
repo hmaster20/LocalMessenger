@@ -2,18 +2,20 @@
 using System.IO;
 using System.Net.Sockets;
 using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace LocalMessenger
 {
     public class FileTransfer
     {
-        private readonly string AttachmentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "LocalMessenger", "attachments");
+        private readonly string AttachmentsPath;
         private readonly byte[] encryptionKey;
 
         public FileTransfer(byte[] key)
         {
             encryptionKey = key;
+            AttachmentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "LocalMessenger", "attachments");
             Directory.CreateDirectory(AttachmentsPath);
         }
 
@@ -21,19 +23,17 @@ namespace LocalMessenger
         {
             var fileName = Path.GetFileName(filePath);
             var fileSize = new FileInfo(filePath).Length;
-            var nonce = GenerateNonce();
+            var nonce = SecurityHelper.GenerateNonce();
 
             using (var client = new TcpClient())
             {
                 await client.ConnectAsync(targetIP, 12000);
                 using (var stream = client.GetStream())
                 {
-                    // Отправить заголовок
                     var header = $"FILE|{fileName}|{fileSize}|{Convert.ToBase64String(nonce)}";
                     var headerBytes = Encoding.UTF8.GetBytes(header);
                     await stream.WriteAsync(headerBytes, 0, headerBytes.Length);
 
-                    // Отправить файл
                     using (var fileStream = File.OpenRead(filePath))
                     {
                         var buffer = new byte[1024 * 1024]; // 1 MB chunks
@@ -42,12 +42,27 @@ namespace LocalMessenger
 
                         while ((bytesRead = await fileStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
                         {
-                            var encrypted = SecurityHelper.Encrypt(buffer, encryptionKey, nonce);
+                            var encrypted = Encrypt(buffer, bytesRead, encryptionKey, nonce);
                             await stream.WriteAsync(encrypted, 0, encrypted.Length);
                             totalSent += bytesRead;
-                            // Обновить прогресс
                         }
                     }
+                }
+            }
+        }
+
+        private byte[] Encrypt(byte[] data, int length, byte[] key, byte[] nonce)
+        {
+            using (Aes aes = Aes.Create())
+            {
+                aes.Key = key;
+                aes.IV = nonce;
+                aes.Mode = CipherMode.CBC;
+                aes.Padding = PaddingMode.PKCS7;
+
+                using (var encryptor = aes.CreateEncryptor())
+                {
+                    return encryptor.TransformFinalBlock(data, 0, length);
                 }
             }
         }
@@ -72,26 +87,34 @@ namespace LocalMessenger
                     using (var fileStream = File.Create(filePath))
                     {
                         var remaining = fileSize;
-                        var buffer = new byte[1024 * 1024]; // 1 MB chunks
+                        var buffer = new byte[1024 * 1024];
 
                         while (remaining > 0)
                         {
                             bytesRead = await stream.ReadAsync(buffer, 0, (int)Math.Min(buffer.Length, remaining));
-                            var decrypted = SecurityHelper.Decrypt(buffer, encryptionKey, nonce, new byte[AesGcm.TagByteSizes.MaxSize]);
-                            await fileStream.WriteAsync(decrypted, 0, bytesRead);
+                            var decrypted = Decrypt(buffer, encryptionKey, nonce);
+                            await fileStream.WriteAsync(decrypted, 0, decrypted.Length);
                             remaining -= bytesRead;
-                            // Обновить прогресс
                         }
                     }
                 }
             }
         }
 
-        private byte[] GenerateNonce()
+        private byte[] Decrypt(byte[] cipherText, byte[] key, byte[] nonce)
         {
-            var nonce = new byte[AesGcm.NonceByteSizes.MaxSize];
-            RandomNumberGenerator.Fill(nonce);
-            return nonce;
+            using (Aes aes = Aes.Create())
+            {
+                aes.Key = key;
+                aes.IV = nonce;
+                aes.Mode = CipherMode.CBC;
+                aes.Padding = PaddingMode.PKCS7;
+
+                using (var decryptor = aes.CreateDecryptor())
+                {
+                    return decryptor.TransformFinalBlock(cipherText, 0, cipherText.Length);
+                }
+            }
         }
     }
 }

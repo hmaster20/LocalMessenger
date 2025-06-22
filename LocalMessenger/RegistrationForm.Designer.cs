@@ -2,15 +2,11 @@
 {
     partial class RegistrationForm
     {
-        /// <summary>
-        /// Required designer variable.
-        /// </summary>
         private System.ComponentModel.IContainer components = null;
+        private System.Windows.Forms.TextBox txtLogin;
+        private System.Windows.Forms.TextBox txtName;
+        private System.Windows.Forms.Button btnOK;
 
-        /// <summary>
-        /// Clean up any resources being used.
-        /// </summary>
-        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
@@ -20,20 +16,35 @@
             base.Dispose(disposing);
         }
 
-        #region Windows Form Designer generated code
-
-        /// <summary>
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
-        /// </summary>
         private void InitializeComponent()
         {
-            this.components = new System.ComponentModel.Container();
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(800, 450);
-            this.Text = "RegistrationForm";
-        }
+            this.txtLogin = new System.Windows.Forms.TextBox();
+            this.txtName = new System.Windows.Forms.TextBox();
+            this.btnOK = new System.Windows.Forms.Button();
+            this.SuspendLayout();
 
-        #endregion
+            // txtLogin
+            this.txtLogin.Location = new System.Drawing.Point(12, 12);
+            this.txtLogin.Size = new System.Drawing.Size(200, 20);
+
+            // txtName
+            this.txtName.Location = new System.Drawing.Point(12, 38);
+            this.txtName.Size = new System.Drawing.Size(200, 20);
+
+            // btnOK
+            this.btnOK.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.btnOK.Location = new System.Drawing.Point(137, 64);
+            this.btnOK.Size = new System.Drawing.Size(75, 23);
+            this.btnOK.Text = "OK";
+            this.btnOK.Click += new System.EventHandler(this.btnOK_Click);
+
+            // RegistrationForm
+            this.ClientSize = new System.Drawing.Size(224, 99);
+            this.Controls.Add(this.txtLogin);
+            this.Controls.Add(this.txtName);
+            this.Controls.Add(this.btnOK);
+            this.ResumeLayout(false);
+            this.PerformLayout();
+        }
     }
 }
