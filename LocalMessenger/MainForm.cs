@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Drawing;
 
 namespace LocalMessenger
 {
@@ -30,14 +32,13 @@ namespace LocalMessenger
         private string myIP = GetLocalIPAddress();
 
         // Элементы интерфейса
-        private ListBox lstContacts;
-        private TextBox txtMessage;
-        private ComboBox cmbStatus;
-        private NotifyIcon notifyIcon;
+        // private ListBox lstContacts;
+        // private TextBox txtMessage;
+        // private ComboBox cmbStatus;
+        // private NotifyIcon notifyIcon;
 
         public MainForm()
         {
-            InitializeComponent();
             InitializePaths();
             InitializeDirectories();
             LoadSettings();
@@ -234,11 +235,27 @@ namespace LocalMessenger
                     var nonce = Convert.FromBase64String(parts[3]);
                     var tag = Convert.FromBase64String(parts[4]);
 
-                    var decrypted = Decrypt(encryptedGroupKey, sharedKeys[parts[1]], nonce, tag);
+                    string decrypted = Decrypt(encryptedGroupKey, sharedKeys[parts[1]], nonce, tag);
                     groupKeys[groupID] = decrypted;
                 }
             }
         }
+
+        //private string Decrypt(byte[] cipherText, byte[] key, byte[] nonce, byte[] tag)
+        //{
+        //    using (Aes aes = Aes.Create())
+        //    {
+        //        aes.Key = key;
+        //        aes.IV = nonce;
+        //        aes.Mode = CipherMode.CBC;
+        //        aes.Padding = PaddingMode.PKCS7;
+
+        //        using (var decryptor = aes.CreateDecryptor())
+        //        {
+        //            return Encoding.UTF8.GetString(decryptor.TransformFinalBlock(cipherText, 0, cipherText.Length));
+        //        }
+        //    }
+        //}
 
         private string Decrypt(byte[] cipherText, byte[] key, byte[] nonce, byte[] tag)
         {
@@ -251,7 +268,8 @@ namespace LocalMessenger
 
                 using (var decryptor = aes.CreateDecryptor())
                 {
-                    return Encoding.UTF8.GetString(decryptor.TransformFinalBlock(cipherText, 0, cipherText.Length));
+                    var decryptedBytes = decryptor.TransformFinalBlock(cipherText, 0, cipherText.Length);
+                    return Encoding.UTF8.GetString(decryptedBytes);
                 }
             }
         }
@@ -420,43 +438,45 @@ namespace LocalMessenger
             return key;
         }
 
-        private void InitializeComponent()
-        {
-            // Инициализация элементов интерфейса
-            this.lstContacts = new ListBox();
-            this.txtMessage = new TextBox();
-            this.cmbStatus = new ComboBox();
-            this.notifyIcon = new NotifyIcon();
+        //private void InitializeComponent()
+        //{
+        //    // Инициализация элементов интерфейса
+        //    this.lstContacts = new ListBox();
+        //    this.txtMessage = new TextBox();
+        //    this.cmbStatus = new ComboBox();
+        //    this.notifyIcon = new NotifyIcon();
 
-            // Настройка элементов
-            this.SuspendLayout();
+        //    // Настройка элементов
+        //    this.SuspendLayout();
             
-            // lstContacts
-            this.lstContacts.FormattingEnabled = true;
-            this.lstContacts.Location = new System.Drawing.Point(12, 12);
-            this.lstContacts.Size = new System.Drawing.Size(150, 225);
+        //    // lstContacts
+        //    this.lstContacts.FormattingEnabled = true;
+        //    this.lstContacts.Location = new System.Drawing.Point(12, 12);
+        //    this.lstContacts.Size = new System.Drawing.Size(150, 225);
             
-            // txtMessage
-            this.txtMessage.Location = new System.Drawing.Point(168, 196);
-            this.txtMessage.Size = new System.Drawing.Size(200, 20);
+        //    // txtMessage
+        //    this.txtMessage.Location = new System.Drawing.Point(168, 196);
+        //    this.txtMessage.Size = new System.Drawing.Size(200, 20);
             
-            // cmbStatus
-            this.cmbStatus.Items.AddRange(new object[] { "Онлайн", "Занят", "Не беспокоить" });
-            this.cmbStatus.Location = new System.Drawing.Point(168, 222);
-            this.cmbStatus.Size = new System.Drawing.Size(121, 21);
+        //    // cmbStatus
+        //    this.cmbStatus.Items.AddRange(new object[] { "Онлайн", "Занят", "Не беспокоить" });
+        //    this.cmbStatus.Location = new System.Drawing.Point(168, 222);
+        //    this.cmbStatus.Size = new System.Drawing.Size(121, 21);
             
-            // notifyIcon
-            this.notifyIcon.Icon = new System.Drawing.Icon(SystemIcons.Application, 40, 40);
-            this.notifyIcon.Text = "LocalMessenger";
-            this.notifyIcon.Visible = false;
+        //    // notifyIcon
+        //    this.notifyIcon.Icon = new System.Drawing.Icon(SystemIcons.Application, 40, 40);
+        //    this.notifyIcon.Text = "LocalMessenger";
+        //    this.notifyIcon.Visible = false;
             
-            // MainForm
-            this.ClientSize = new System.Drawing.Size(380, 255);
-            this.Controls.Add(this.lstContacts);
-            this.Controls.Add(this.txtMessage);
-            this.Controls.Add(this.cmbStatus);
-            this.ResumeLayout(false);
-            this.PerformLayout();
-        }
+        //    // MainForm
+        //    this.ClientSize = new System.Drawing.Size(380, 255);
+        //    this.Controls.Add(this.lstContacts);
+        //    this.Controls.Add(this.txtMessage);
+        //    this.Controls.Add(this.cmbStatus);
+        //    this.ResumeLayout(false);
+        //    this.PerformLayout();
+        //}
+
+
     }
 }

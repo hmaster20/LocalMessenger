@@ -66,14 +66,14 @@ namespace LocalMessenger
         /// </summary>
         private byte[] Encrypt(string plainText, byte[] key)
         {
-            using (var aes = new AesGcm(key))
+            using (var aes = new AesCryptoServiceProvider(key))
             {
-                var nonce = new byte[AesGcm.NonceByteSizes.MaxSize];
+                var nonce = new byte[AesCryptoServiceProvider.NonceByteSizes.MaxSize];
                 RandomNumberGenerator.Fill(nonce);
 
                 var plainBytes = Encoding.UTF8.GetBytes(plainText);
                 var cipherText = new byte[plainBytes.Length];
-                var tag = new byte[AesGcm.TagByteSizes.MaxSize];
+                var tag = new byte[AesCryptoServiceProvider.TagByteSizes.MaxSize];
 
                 aes.Encrypt(nonce, plainBytes, cipherText, tag);
 
@@ -92,10 +92,10 @@ namespace LocalMessenger
         /// </summary>
         private string Decrypt(byte[] cipherData, byte[] key)
         {
-            using (var aes = new AesGcm(key))
+            using (var aes = new AesCryptoServiceProvider(key))
             {
-                var nonce = new byte[AesGcm.NonceByteSizes.MaxSize];
-                var tag = new byte[AesGcm.TagByteSizes.MaxSize];
+                var nonce = new byte[AesCryptoServiceProvider.NonceByteSizes.MaxSize];
+                var tag = new byte[AesCryptoServiceProvider.TagByteSizes.MaxSize];
                 var cipherText = new byte[cipherData.Length - nonce.Length - tag.Length];
 
                 Buffer.BlockCopy(cipherData, 0, nonce, 0, nonce.Length);

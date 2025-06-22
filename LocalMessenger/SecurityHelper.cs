@@ -1,5 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using System.Security.Cryptography;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace LocalMessenger
 {
@@ -18,6 +26,38 @@ namespace LocalMessenger
         public static byte[] DeriveSharedKey(ECDiffieHellmanCng myECDH, byte[] contactPublicKey)
         {
             return myECDH.DeriveKeyMaterial(CngKey.Import(contactPublicKey, CngKeyBlobFormat.EccPublicBlob));
+        }
+
+        public static byte[] Encrypt(byte[] data, byte[] key, byte[] iv)
+        {
+            using (Aes aes = Aes.Create())
+            {
+                aes.Key = key;
+                aes.IV = iv;
+                aes.Mode = CipherMode.CBC;
+                aes.Padding = PaddingMode.PKCS7;
+
+                using (var encryptor = aes.CreateEncryptor())
+                {
+                    return encryptor.TransformFinalBlock(data, 0, data.Length);
+                }
+            }
+        }
+
+        public static byte[] Decrypt(byte[] cipherText, byte[] key, byte[] iv)
+        {
+            using (Aes aes = Aes.Create())
+            {
+                aes.Key = key;
+                aes.IV = iv;
+                aes.Mode = CipherMode.CBC;
+                aes.Padding = PaddingMode.PKCS7;
+
+                using (var decryptor = aes.CreateDecryptor())
+                {
+                    return decryptor.TransformFinalBlock(cipherText, 0, cipherText.Length);
+                }
+            }
         }
     }
 }
