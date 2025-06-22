@@ -62,49 +62,61 @@ namespace LocalMessenger
         }
 
         /// <summary>
-        /// Зашифровать данные AES-256-GCM
+        /// Зашифровать данные AES-256-CBC
         /// </summary>
         private byte[] Encrypt(string plainText, byte[] key)
         {
-            using (var aes = new AesCryptoServiceProvider(key))
+            using (var aes = Aes.Create())
             {
-                var nonce = new byte[AesCryptoServiceProvider.NonceByteSizes.MaxSize];
-                RandomNumberGenerator.Fill(nonce);
+                aes.Key = key;
+                aes.Mode = CipherMode.CBC;
+                aes.Padding = PaddingMode.PKCS7;
+                
+                // Генерируем случайный IV
+                aes.GenerateIV();
+                var iv = aes.IV;
 
                 var plainBytes = Encoding.UTF8.GetBytes(plainText);
-                var cipherText = new byte[plainBytes.Length];
-                var tag = new byte[AesCryptoServiceProvider.TagByteSizes.MaxSize];
-
-                aes.Encrypt(nonce, plainBytes, cipherText, tag);
-
-                // Сохранить nonce и tag в начале файла
-                var result = new byte[nonce.Length + cipherText.Length + tag.Length];
-                Buffer.BlockCopy(nonce, 0, result, 0, nonce.Length);
-                Buffer.BlockCopy(cipherText, 0, result, nonce.Length, cipherText.Length);
-                Buffer.BlockCopy(tag, 0, result, nonce.Length + cipherText.Length, tag.Length);
-
-                return result;
+                
+                using (var encryptor = aes.CreateEncryptor())
+                {
+                    var cipherText = encryptor.TransformFinalBlock(plainBytes, 0, plainBytes.Length);
+                    
+                    // Объединяем IV и зашифрованные данные
+                    var result = new byte[iv.Length + cipherText.Length];
+                    Buffer.BlockCopy(iv, 0, result, 0, iv.Length);
+                    Buffer.BlockCopy(cipherText, 0, result, iv.Length, cipherText.Length);
+                    
+                    return result;
+                }
             }
         }
 
         /// <summary>
-        /// Расшифровать данные AES-256-GCM
+        /// Расшифровать данные AES-256-CBC
         /// </summary>
         private string Decrypt(byte[] cipherData, byte[] key)
         {
-            using (var aes = new AesCryptoServiceProvider(key))
+            using (var aes = Aes.Create())
             {
-                var nonce = new byte[AesCryptoServiceProvider.NonceByteSizes.MaxSize];
-                var tag = new byte[AesCryptoServiceProvider.TagByteSizes.MaxSize];
-                var cipherText = new byte[cipherData.Length - nonce.Length - tag.Length];
-
-                Buffer.BlockCopy(cipherData, 0, nonce, 0, nonce.Length);
-                Buffer.BlockCopy(cipherData, nonce.Length, cipherText, 0, cipherText.Length);
-                Buffer.BlockCopy(cipherData, nonce.Length + cipherText.Length, tag, 0, tag.Length);
-
-                var decrypted = new byte[cipherText.Length];
-                aes.Decrypt(nonce, cipherText, tag, decrypted);
-                return Encoding.UTF8.GetString(decrypted);
+                aes.Key = key;
+                aes.Mode = CipherMode.CBC;
+                aes.Padding = PaddingMode.PKCS7;
+                
+                // Извлекаем IV из начала данных
+                var iv = new byte[16]; // AES IV всегда 16 байт
+                var cipherText = new byte[cipherData.Length - iv.Length];
+                
+                Buffer.BlockCopy(cipherData, 0, iv, 0, iv.Length);
+                Buffer.BlockCopy(cipherData, iv.Length, cipherText, 0, cipherText.Length);
+                
+                aes.IV = iv;
+                
+                using (var decryptor = aes.CreateDecryptor())
+                {
+                    var decrypted = decryptor.TransformFinalBlock(cipherText, 0, cipherText.Length);
+                    return Encoding.UTF8.GetString(decrypted);
+                }
             }
         }
     }
@@ -116,7 +128,14 @@ namespace LocalMessenger
     {
         public string Sender { get; set; }
         public string Content { get; set; }
-        public MessageType Type { get; set; }
+        //public MessageType Type { get; set; }
         public DateTime Timestamp { get; } = DateTime.Now;
     }
+
+    //public enum MessageType
+    //{
+    //    Text,
+    //    File,
+    //    Image
+    //}
 }

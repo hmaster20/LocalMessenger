@@ -24,29 +24,25 @@ namespace LocalMessenger
         private ECDiffieHellmanCng myECDH;
         private Dictionary<string, byte[]> contactPublicKeys = new Dictionary<string, byte[]>();
         private Dictionary<string, byte[]> sharedKeys = new Dictionary<string, byte[]>();
-        private Dictionary<string, byte[]> groupKeys = new Dictionary<string, byte[]>(); // Исправлено: byte[] вместо string
+        private Dictionary<string, string> groupKeys = new Dictionary<string, string>();
 
         private string myLogin;
         private string myName;
         private string myStatus = "Online";
         private string myIP = GetLocalIPAddress();
 
-        //// Элементы интерфейса
-        //private ListBox lstContacts;
-        //private TextBox txtMessage;
-        //private ComboBox cmbStatus;
-        //private NotifyIcon notifyIcon;
-        //private Button btnSend;
-        //private Button btnCreateGroup;
+        // Элементы интерфейса
+        // private ListBox lstContacts;
+        // private TextBox txtMessage;
+        // private ComboBox cmbStatus;
+        // private NotifyIcon notifyIcon;
 
         public MainForm()
         {
-            InitializeComponent();
             InitializePaths();
             InitializeDirectories();
             LoadSettings();
             InitializeNetwork();
-            new TrayIconManager(this); // Инициализация TrayIcon
             StartUdpBroadcast();
             StartTcpServer();
         }
@@ -187,15 +183,7 @@ namespace LocalMessenger
 
                 if (parts[0] == "HELLO")
                 {
-                    var sender = parts[1];
-                    var name = parts[2];
-                    var status = parts[3];
-                    var publicKey = Convert.FromBase64String(parts[4]);
-                    contactPublicKeys[sender] = publicKey;
-                    if (!lstContacts.Items.Contains(sender))
-                    {
-                        lstContacts.Items.Add(sender);
-                    }
+                    // Обработка через UDP
                 }
                 else if (parts[0] == "KEY_EXCHANGE")
                 {
@@ -247,16 +235,33 @@ namespace LocalMessenger
                     var encryptedGroupKey = Convert.FromBase64String(parts[2]);
                     var nonce = Convert.FromBase64String(parts[3]);
                     var tag = Convert.FromBase64String(parts[4]);
-                    var sender = parts[5]; // Исправлено: правильное получение отправителя
 
-                    if (sharedKeys.ContainsKey(sender))
-                    {
-                        var decryptedGroupKeyString = Decrypt(encryptedGroupKey, sharedKeys[sender], nonce, tag);
-                        groupKeys[groupID] = Convert.FromBase64String(decryptedGroupKeyString); // Исправлено: преобразование string в byte[]
-                    }
+                    var sender = parts[1]; // Получаем отправителя
+if (sharedKeys.ContainsKey(sender))
+{
+    var decryptedGroupKeyString = Decrypt(encryptedGroupKey, sharedKeys[sender], nonce, tag);
+    groupKeys[groupID] = Encoding.UTF8.GetBytes(decryptedGroupKeyString);
+}
+                    groupKeys[groupID] = decrypted;
                 }
             }
         }
+
+        //private string Decrypt(byte[] cipherText, byte[] key, byte[] nonce, byte[] tag)
+        //{
+        //    using (Aes aes = Aes.Create())
+        //    {
+        //        aes.Key = key;
+        //        aes.IV = nonce;
+        //        aes.Mode = CipherMode.CBC;
+        //        aes.Padding = PaddingMode.PKCS7;
+
+        //        using (var decryptor = aes.CreateDecryptor())
+        //        {
+        //            return Encoding.UTF8.GetString(decryptor.TransformFinalBlock(cipherText, 0, cipherText.Length));
+        //        }
+        //    }
+        //}
 
         private string Decrypt(byte[] cipherText, byte[] key, byte[] nonce, byte[] tag)
         {
@@ -370,33 +375,13 @@ namespace LocalMessenger
             return null;
         }
 
-        //private void SendTcpMessage(string contactIP, string message)
-        //{
-        //    var client = new TcpClient();
-        //    client.Connect(contactIP, 12000);
-        //    var stream = client.GetStream();
-        //    var bytes = Encoding.UTF8.GetBytes(message);
-        //    stream.Write(bytes, 0, bytes.Length);
-        //}
-
         private void SendTcpMessage(string contactIP, string message)
         {
-            using (var client = new TcpClient())
-            {
-                try
-                {
-                    client.Connect(contactIP, 12000);
-                    using (var stream = client.GetStream())
-                    {
-                        var bytes = Encoding.UTF8.GetBytes(message);
-                        stream.Write(bytes, 0, bytes.Length);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Ошибка отправки сообщения: {ex.Message}");
-                }
-            }
+            var client = new TcpClient();
+            client.Connect(contactIP, 12000);
+            var stream = client.GetStream();
+            var bytes = Encoding.UTF8.GetBytes(message);
+            stream.Write(bytes, 0, bytes.Length);
         }
 
         private void cmbStatus_SelectedIndexChanged(object sender, EventArgs e)
@@ -411,15 +396,15 @@ namespace LocalMessenger
             notifyIcon.Visible = false;
         }
 
-        //private void MainForm_Resize(object sender, EventArgs e)
-        //{
-        //    if (this.WindowState == FormWindowState.Minimized)
-        //    {
-        //        this.ShowInTaskbar = false;
-        //        notifyIcon.Visible = true;
-        //        notifyIcon.ShowBalloonTip(500);
-        //    }
-        //}
+        private void MainForm_Resize(object sender, EventArgs e)
+        {
+            if (this.WindowState == FormWindowState.Minimized)
+            {
+                this.ShowInTaskbar = false;
+                notifyIcon.Visible = true;
+                notifyIcon.ShowBalloonTip(500);
+            }
+        }
 
         private void btnCreateGroup_Click(object sender, EventArgs e)
         {
@@ -443,12 +428,22 @@ namespace LocalMessenger
                         var nonce = GenerateNonce();
                         var groupKeyString = Convert.ToBase64String(groupKey);
                         var encryptedGroupKey = Encrypt(groupKeyString, sharedKey, nonce);
-                        var message = $"GROUP_KEY|{groupID}|{Convert.ToBase64String(encryptedGroupKey)}|{Convert.ToBase64String(nonce)}|{Convert.ToBase64String(new byte[16])}|{myLogin}";
+                        var message = $"GROUP_KEY|{groupID}|{Convert.ToBase64String(encryptedGroupKey)}|{Convert.ToBase64String(nonce)}|{Convert.ToBase64String(new byte[16])}";
                         SendTcpMessage(member, message);
                     }
                 }
             }
         }
+
+private string GenerateGroupKeyAsString()
+{
+    var key = new byte[32]; // 256-bit group key
+    using (var rng = RandomNumberGenerator.Create())
+    {
+        rng.GetBytes(key);
+    }
+    return Convert.ToBase64String(key);
+}
 
         private byte[] GenerateGroupKey()
         {
@@ -459,6 +454,45 @@ namespace LocalMessenger
             }
             return key;
         }
+
+        //private void InitializeComponent()
+        //{
+        //    // Инициализация элементов интерфейса
+        //    this.lstContacts = new ListBox();
+        //    this.txtMessage = new TextBox();
+        //    this.cmbStatus = new ComboBox();
+        //    this.notifyIcon = new NotifyIcon();
+
+        //    // Настройка элементов
+        //    this.SuspendLayout();
+            
+        //    // lstContacts
+        //    this.lstContacts.FormattingEnabled = true;
+        //    this.lstContacts.Location = new System.Drawing.Point(12, 12);
+        //    this.lstContacts.Size = new System.Drawing.Size(150, 225);
+            
+        //    // txtMessage
+        //    this.txtMessage.Location = new System.Drawing.Point(168, 196);
+        //    this.txtMessage.Size = new System.Drawing.Size(200, 20);
+            
+        //    // cmbStatus
+        //    this.cmbStatus.Items.AddRange(new object[] { "Онлайн", "Занят", "Не беспокоить" });
+        //    this.cmbStatus.Location = new System.Drawing.Point(168, 222);
+        //    this.cmbStatus.Size = new System.Drawing.Size(121, 21);
+            
+        //    // notifyIcon
+        //    this.notifyIcon.Icon = new System.Drawing.Icon(SystemIcons.Application, 40, 40);
+        //    this.notifyIcon.Text = "LocalMessenger";
+        //    this.notifyIcon.Visible = false;
+            
+        //    // MainForm
+        //    this.ClientSize = new System.Drawing.Size(380, 255);
+        //    this.Controls.Add(this.lstContacts);
+        //    this.Controls.Add(this.txtMessage);
+        //    this.Controls.Add(this.cmbStatus);
+        //    this.ResumeLayout(false);
+        //    this.PerformLayout();
+        //}
 
 
     }

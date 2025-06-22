@@ -15,7 +15,7 @@ namespace LocalMessenger
 
         public GroupCreationForm()
         {
-            //InitializeComponent();
+            InitializeComponent();
         }
 
         //private void InitializeComponent()

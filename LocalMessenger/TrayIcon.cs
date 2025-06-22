@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Drawing;
 using System.Windows.Forms;
 
 namespace LocalMessenger
@@ -13,7 +14,8 @@ namespace LocalMessenger
             mainForm = form;
             notifyIcon = new NotifyIcon
             {
-                Icon = Properties.Resources.AppIcon, // Иконка приложения
+                // Используем системную иконку или создаем простую иконку
+                Icon = SystemIcons.Application, 
                 Visible = false,
                 Text = "Local Messenger"
             };
@@ -42,7 +44,7 @@ namespace LocalMessenger
         }
 
         /// <summary>
-        /// Восстановить окно из трэя
+        /// Восстановить окно из трея
         /// </summary>
         private void RestoreWindow(object sender, EventArgs e)
         {
@@ -59,5 +61,10 @@ namespace LocalMessenger
             notifyIcon.Dispose();
             Application.Exit();
         }
+
+
+ 
+    
+
     }
 }

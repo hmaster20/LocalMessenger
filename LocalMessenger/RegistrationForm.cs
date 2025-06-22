@@ -22,7 +22,7 @@ namespace LocalMessenger
 
         public RegistrationForm()
         {
-            //InitializeComponent();
+            InitializeComponent();
         }
 
         //private void InitializeComponent()
@@ -75,6 +75,11 @@ namespace LocalMessenger
             Name = txtName.Text;
             DialogResult = DialogResult.OK;
             Close();
+        }
+
+        private void txtLogin_TextChanged(object sender, EventArgs e)
+        {
+
         }
     }
 }

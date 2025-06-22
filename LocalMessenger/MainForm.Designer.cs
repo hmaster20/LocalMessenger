@@ -59,11 +59,23 @@ namespace LocalMessenger
             this.cmbStatus.Name = "cmbStatus";
             this.cmbStatus.Size = new System.Drawing.Size(121, 24);
             this.cmbStatus.TabIndex = 2;
+            this.cmbStatus.SelectedIndexChanged += new System.EventHandler(this.cmbStatus_SelectedIndexChanged);
             // 
             // notifyIcon
             // 
-            this.notifyIcon.Icon = ((System.Drawing.Icon)(resources.GetObject("notifyIcon.Icon")));
+            //this.notifyIcon.Icon = ((System.Drawing.Icon)(resources.GetObject("notifyIcon.Icon")));
+            this.notifyIcon.Icon = new System.Drawing.Icon(SystemIcons.Application, 40, 40);
             this.notifyIcon.Text = "LocalMessenger";
+            this.notifyIcon.Visible = false;
+            this.notifyIcon.DoubleClick += new System.EventHandler(this.notifyIcon_DoubleClick);
+
+
+
+
+
+
+
+
             // 
             // btnCreateGroup
             // 
@@ -96,5 +108,66 @@ namespace LocalMessenger
             this.PerformLayout();
 
         }
+
+
+        //private void InitializeComponent()
+        //{
+        //    // Инициализация элементов интерфейса
+        //    this.lstContacts = new ListBox();
+        //    this.txtMessage = new TextBox();
+        //    this.cmbStatus = new ComboBox();
+        //    this.notifyIcon = new NotifyIcon();
+        //    this.btnSend = new Button();
+        //    this.btnCreateGroup = new Button();
+
+        //    // Настройка элементов
+        //    this.SuspendLayout();
+
+        //    // lstContacts
+        //    this.lstContacts.FormattingEnabled = true;
+        //    this.lstContacts.Location = new System.Drawing.Point(12, 12);
+        //    this.lstContacts.Size = new System.Drawing.Size(150, 225);
+
+        //    // txtMessage
+        //    this.txtMessage.Location = new System.Drawing.Point(168, 196);
+        //    this.txtMessage.Size = new System.Drawing.Size(200, 20);
+
+        //    // btnSend
+        //    this.btnSend.Location = new System.Drawing.Point(374, 196);
+        //    this.btnSend.Size = new System.Drawing.Size(75, 23);
+        //    this.btnSend.Text = "Отправить";
+        //    this.btnSend.Click += new System.EventHandler(this.btnSend_Click);
+
+        //    // btnCreateGroup
+        //    this.btnCreateGroup.Location = new System.Drawing.Point(168, 12);
+        //    this.btnCreateGroup.Size = new System.Drawing.Size(100, 23);
+        //    this.btnCreateGroup.Text = "Создать группу";
+        //    this.btnCreateGroup.Click += new System.EventHandler(this.btnCreateGroup_Click);
+
+        //    // cmbStatus
+        //    this.cmbStatus.Items.AddRange(new object[] { "Онлайн", "Занят", "Не беспокоить" });
+        //    this.cmbStatus.Location = new System.Drawing.Point(168, 222);
+        //    this.cmbStatus.Size = new System.Drawing.Size(121, 21);
+        //    this.cmbStatus.SelectedIndexChanged += new System.EventHandler(this.cmbStatus_SelectedIndexChanged);
+
+        //    // notifyIcon
+        //    this.notifyIcon.Icon = new System.Drawing.Icon(SystemIcons.Application, 40, 40);
+        //    this.notifyIcon.Text = "LocalMessenger";
+        //    this.notifyIcon.Visible = false;
+        //    this.notifyIcon.DoubleClick += new System.EventHandler(this.notifyIcon_DoubleClick);
+
+        //    // MainForm
+        //    this.ClientSize = new System.Drawing.Size(460, 255);
+        //    this.Controls.Add(this.lstContacts);
+        //    this.Controls.Add(this.txtMessage);
+        //    this.Controls.Add(this.btnSend);
+        //    this.Controls.Add(this.btnCreateGroup);
+        //    this.Controls.Add(this.cmbStatus);
+        //    this.Text = "LocalMessenger";
+        //    this.Resize += new System.EventHandler(this.MainForm_Resize);
+        //    this.ResumeLayout(false);
+        //    this.PerformLayout();
+        //}
+
     }
 }

@@ -72,7 +72,7 @@ namespace LocalMessenger
             using (client)
             {
                 var stream = client.GetStream();
-                var headerBuffer = new byte[4096]; // Переименовано
+                var headerBuffer = new byte[4096];
                 var bytesRead = await stream.ReadAsync(headerBuffer, 0, headerBuffer.Length);
                 var header = Encoding.UTF8.GetString(headerBuffer, 0, bytesRead);
                 var parts = header.Split('|');
@@ -87,12 +87,12 @@ namespace LocalMessenger
                     using (var fileStream = File.Create(filePath))
                     {
                         var remaining = fileSize;
-                        var fileBuffer = new byte[1024 * 1024]; // Переименовано
+                        var fileBuffer = new byte[1024 * 1024]; // Переименовали переменную
 
                         while (remaining > 0)
                         {
                             bytesRead = await stream.ReadAsync(fileBuffer, 0, (int)Math.Min(fileBuffer.Length, remaining));
-                            var decrypted = Decrypt(fileBuffer, encryptionKey, nonce);
+                            var decrypted = Decrypt(fileBuffer, bytesRead, encryptionKey, nonce);
                             await fileStream.WriteAsync(decrypted, 0, decrypted.Length);
                             remaining -= bytesRead;
                         }
@@ -101,41 +101,7 @@ namespace LocalMessenger
             }
         }
 
-        //public async Task ReceiveFile(TcpClient client)
-        //{
-        //    using (client)
-        //    {
-        //        var stream = client.GetStream();
-        //        var buffer = new byte[4096];
-        //        var bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
-        //        var header = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-        //        var parts = header.Split('|');
-
-        //        if (parts[0] == "FILE")
-        //        {
-        //            var fileName = parts[1];
-        //            var fileSize = Convert.ToInt64(parts[2]);
-        //            var nonce = Convert.FromBase64String(parts[3]);
-
-        //            var filePath = Path.Combine(AttachmentsPath, fileName);
-        //            using (var fileStream = File.Create(filePath))
-        //            {
-        //                var remaining = fileSize;
-        //                var buffer = new byte[1024 * 1024];
-
-        //                while (remaining > 0)
-        //                {
-        //                    bytesRead = await stream.ReadAsync(buffer, 0, (int)Math.Min(buffer.Length, remaining));
-        //                    var decrypted = Decrypt(buffer, encryptionKey, nonce);
-        //                    await fileStream.WriteAsync(decrypted, 0, decrypted.Length);
-        //                    remaining -= bytesRead;
-        //                }
-        //            }
-        //        }
-        //    }
-        //}
-
-        private byte[] Decrypt(byte[] cipherText, byte[] key, byte[] nonce)
+        private byte[] Decrypt(byte[] cipherText, int length, byte[] key, byte[] nonce)
         {
             using (Aes aes = Aes.Create())
             {
@@ -146,9 +112,28 @@ namespace LocalMessenger
 
                 using (var decryptor = aes.CreateDecryptor())
                 {
-                    return decryptor.TransformFinalBlock(cipherText, 0, cipherText.Length);
+                    return decryptor.TransformFinalBlock(cipherText, 0, length);
                 }
             }
         }
+
+
+
+
+
+
     }
+
+    //public static class SecurityHelper
+    //{
+    //    public static byte[] GenerateNonce()
+    //    {
+    //        var nonce = new byte[16]; // 128-bit nonce for AES
+    //        using (var rng = RandomNumberGenerator.Create())
+    //        {
+    //            rng.GetBytes(nonce);
+    //        }
+    //        return nonce;
+    //    }
+    //}
 }
