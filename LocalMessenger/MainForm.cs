@@ -411,15 +411,19 @@ namespace LocalMessenger
             notifyIcon.Visible = false;
         }
 
-        //private void MainForm_Resize(object sender, EventArgs e)
-        //{
-        //    if (this.WindowState == FormWindowState.Minimized)
-        //    {
-        //        this.ShowInTaskbar = false;
-        //        notifyIcon.Visible = true;
-        //        notifyIcon.ShowBalloonTip(500);
-        //    }
-        //}
+        private void MainForm_Resize(object sender, EventArgs e)
+        {
+            if (this.WindowState == FormWindowState.Minimized)
+            {
+                this.ShowInTaskbar = false;
+                notifyIcon.Visible = true;
+                notifyIcon.Text = "LocalMessenger";
+                notifyIcon.BalloonTipText = "LocalMessenger";
+                notifyIcon.BalloonTipTitle = "Название";
+                notifyIcon.ShowBalloonTip(500);
+
+            }
+        }
 
         private void btnCreateGroup_Click(object sender, EventArgs e)
         {
