@@ -32,6 +32,7 @@ namespace LocalMessenger
         private string myIP = GetLocalIPAddress();
         private HistoryManager historyManager;
         private MessageBufferManager bufferManager;
+        private bool isLoggingOut = false; // Флаг для предотвращения сохранения настроек при выходе
 
         public MainForm()
         {
@@ -47,6 +48,7 @@ namespace LocalMessenger
             StartTcpServer();
             UpdateStatusAndIP();
             TrySendBufferedMessagesAsync();
+            UpdateSendControlsState(); // Инициализация состояния элементов отправки
         }
 
         private void InitializePaths()
@@ -68,12 +70,33 @@ namespace LocalMessenger
         {
             if (File.Exists(SettingsFile))
             {
-                var json = File.ReadAllText(SettingsFile);
-                var settings = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-                myLogin = settings["login"];
-                myName = settings["name"];
-                myStatus = settings.ContainsKey("status") ? settings["status"] : "Online";
-                cmbStatus.SelectedItem = myStatus;
+                try
+                {
+                    var json = File.ReadAllText(SettingsFile);
+                    if (string.IsNullOrWhiteSpace(json))
+                    {
+                        ShowRegistrationForm();
+                        return;
+                    }
+                    var settings = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
+                    if (settings.ContainsKey("login") && settings.ContainsKey("name"))
+                    {
+                        myLogin = settings["login"];
+                        myName = settings["name"];
+                        myStatus = settings.ContainsKey("status") ? settings["status"] : "Online";
+                        cmbStatus.SelectedItem = myStatus;
+                        UpdateStatusAndIP();
+                    }
+                    else
+                    {
+                        ShowRegistrationForm();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Ошибка загрузки настроек: {ex.Message}");
+                    ShowRegistrationForm();
+                }
             }
             else
             {
@@ -90,13 +113,8 @@ namespace LocalMessenger
                     myLogin = form.Login;
                     myName = form.Name;
                     myStatus = "Online";
-                    var settings = new Dictionary<string, string>
-                    {
-                        { "login", myLogin },
-                        { "name", myName },
-                        { "status", myStatus }
-                    };
-                    File.WriteAllText(SettingsFile, Newtonsoft.Json.JsonConvert.SerializeObject(settings));
+                    SaveSettings();
+                    UpdateStatusAndIP();
                 }
                 else
                 {
@@ -143,7 +161,7 @@ namespace LocalMessenger
                     var data = $"HELLO|{myLogin}|{myName}|{myStatus}|{Convert.ToBase64String(publicKey)}";
                     var bytes = Encoding.UTF8.GetBytes(data);
                     await udpClient.SendAsync(bytes, bytes.Length, new IPEndPoint(IPAddress.Broadcast, 11000));
-                    await Task.Delay(5000); // Heartbeat
+                    await Task.Delay(5000);
                 }
                 catch (Exception ex)
                 {
@@ -450,6 +468,14 @@ namespace LocalMessenger
         {
             lblStatus.Text = $"Статус: {myStatus}";
             lblIP.Text = $"IP: {myIP}";
+            lblUserInfo.Text = $"Пользователь: {myLogin} ({myName})";
+        }
+
+        private void UpdateSendControlsState()
+        {
+            bool isContactSelected = lstContacts.SelectedItem != null;
+            btnSend.Enabled = isContactSelected;
+            txtMessage.Enabled = isContactSelected;
         }
 
         private void cmbStatus_SelectedIndexChanged(object sender, EventArgs e)
@@ -461,6 +487,7 @@ namespace LocalMessenger
 
         private void lstContacts_SelectedIndexChanged(object sender, EventArgs e)
         {
+            UpdateSendControlsState(); // Обновляем состояние элементов при изменении выбора
             if (lstContacts.SelectedItem != null)
             {
                 UpdateHistoryDisplay(lstContacts.SelectedItem.ToString());
@@ -469,8 +496,20 @@ namespace LocalMessenger
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
-            SaveSettings();
+            if (!isLoggingOut)
+            {
+                SaveSettings();
+            }
             bufferManager.SaveBuffer();
+            if (udpClient != null)
+            {
+                udpClient.Close();
+                udpClient.Dispose();
+            }
+            if (tcpListener != null)
+            {
+                tcpListener.Stop();
+            }
         }
 
         private void SaveSettings()
@@ -481,12 +520,37 @@ namespace LocalMessenger
                 { "name", myName },
                 { "status", myStatus }
             };
-            File.WriteAllText(SettingsFile, Newtonsoft.Json.JsonConvert.SerializeObject(settings));
+            try
+            {
+                File.WriteAllText(SettingsFile, Newtonsoft.Json.JsonConvert.SerializeObject(settings));
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка сохранения настроек: {ex.Message}");
+            }
+        }
+
+        private void btnLogout_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                isLoggingOut = true; // Устанавливаем флаг, чтобы не сохранять настройки при закрытии
+                if (File.Exists(SettingsFile))
+                {
+                    File.Delete(SettingsFile);
+                }
+                MessageBox.Show("Данные пользователя удалены. Приложение будет закрыто.");
+                Application.Exit();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка при удалении данных: {ex.Message}");
+            }
         }
 
         private byte[] GenerateEncryptionKey()
         {
-            var key = new byte[32]; // 256-bit key
+            var key = new byte[32];
             using (var rng = new RNGCryptoServiceProvider())
             {
                 rng.GetBytes(key);
