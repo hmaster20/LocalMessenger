@@ -53,17 +53,17 @@ namespace LocalMessenger
             this.lstContacts.ItemHeight = 16;
             this.lstContacts.Location = new System.Drawing.Point(12, 12);
             this.lstContacts.Name = "lstContacts";
-            this.lstContacts.Size = new System.Drawing.Size(150, 20);
+            this.lstContacts.Size = new System.Drawing.Size(150, 260);
             this.lstContacts.TabIndex = 0;
             this.lstContacts.SelectedIndexChanged += new System.EventHandler(this.lstContacts_SelectedIndexChanged);
             // 
             // txtMessage
             // 
+            this.txtMessage.Enabled = false;
             this.txtMessage.Location = new System.Drawing.Point(168, 196);
             this.txtMessage.Name = "txtMessage";
             this.txtMessage.Size = new System.Drawing.Size(200, 24);
             this.txtMessage.TabIndex = 1;
-            this.txtMessage.Enabled = false;
             // 
             // cmbStatus
             // 
@@ -79,9 +79,8 @@ namespace LocalMessenger
             // 
             // notifyIcon
             // 
-            this.notifyIcon.Icon = new System.Drawing.Icon(SystemIcons.Application, 40, 40);
+            this.notifyIcon.Icon = ((System.Drawing.Icon)(resources.GetObject("notifyIcon.Icon")));
             this.notifyIcon.Text = "LocalMessenger";
-            this.notifyIcon.Visible = false;
             this.notifyIcon.DoubleClick += new System.EventHandler(this.notifyIcon_DoubleClick);
             // 
             // btnCreateGroup
@@ -95,12 +94,12 @@ namespace LocalMessenger
             // 
             // btnSend
             // 
+            this.btnSend.Enabled = false;
             this.btnSend.Location = new System.Drawing.Point(374, 197);
             this.btnSend.Name = "btnSend";
             this.btnSend.Size = new System.Drawing.Size(100, 23);
             this.btnSend.TabIndex = 4;
             this.btnSend.Text = "Send";
-            this.btnSend.Enabled = false;
             this.btnSend.Click += new System.EventHandler(this.btnSend_Click);
             // 
             // btnExit
@@ -158,13 +157,14 @@ namespace LocalMessenger
             // 
             this.rtbHistory.Location = new System.Drawing.Point(168, 72);
             this.rtbHistory.Name = "rtbHistory";
-            this.rtbHistory.Size = new System.Drawing.Size(306, 118);
-            this.rtbHistory.TabIndex = 9;
             this.rtbHistory.ReadOnly = true;
+            this.rtbHistory.Size = new System.Drawing.Size(546, 118);
+            this.rtbHistory.TabIndex = 9;
+            this.rtbHistory.Text = "";
             // 
             // MainForm
             // 
-            this.ClientSize = new System.Drawing.Size(539, 279);
+            this.ClientSize = new System.Drawing.Size(726, 279);
             this.Controls.Add(this.lstContacts);
             this.Controls.Add(this.txtMessage);
             this.Controls.Add(this.cmbStatus);
@@ -180,9 +180,10 @@ namespace LocalMessenger
             this.Name = "MainForm";
             this.Text = "LocalMessenger";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
+            this.Resize += new System.EventHandler(this.MainForm_Resize);
             this.ResumeLayout(false);
             this.PerformLayout();
-            this.Resize += new System.EventHandler(this.MainForm_Resize);
+
         }
     }
 }

@@ -21,12 +21,14 @@ namespace LocalMessenger
         private string HistoryPath;
         private string SettingsFile;
 
-        private UdpClient udpClient;
+        private UdpClient udpListener; // Для приема сообщений
+        private UdpClient udpSender; // Для отправки сообщений
         private TcpListener tcpListener;
         private ECDiffieHellmanCng myECDH;
         private Dictionary<string, byte[]> contactPublicKeys = new Dictionary<string, byte[]>();
         private Dictionary<string, byte[]> sharedKeys = new Dictionary<string, byte[]>();
         private Dictionary<string, byte[]> groupKeys = new Dictionary<string, byte[]>();
+        private Dictionary<string, string> contactIPs = new Dictionary<string, string>();
 
         private string myLogin;
         private string myName;
@@ -38,6 +40,7 @@ namespace LocalMessenger
         public MainForm()
         {
             InitializeComponent();
+            Logger.Log($"Application started. Session initialized for IP: {myIP}");
             InitializePaths();
             InitializeDirectories();
             LoadSettings();
@@ -45,8 +48,9 @@ namespace LocalMessenger
             historyManager = new HistoryManager(AppDataPath, GenerateEncryptionKey());
             bufferManager = new MessageBufferManager(AppDataPath);
             new TrayIconManager(this);
-            AddCurrentUserToContacts(); // Добавляем текущего пользователя в lstContacts
+            AddCurrentUserToContacts();
             StartUdpBroadcast();
+            StartUdpListener();
             StartTcpServer();
             UpdateStatusAndIP();
             TrySendBufferedMessagesAsync();
@@ -59,6 +63,7 @@ namespace LocalMessenger
             AttachmentsPath = Path.Combine(AppDataPath, "attachments");
             HistoryPath = Path.Combine(AppDataPath, "history");
             SettingsFile = Path.Combine(AppDataPath, "settings.json");
+            Logger.Log($"Paths initialized: AppData={AppDataPath}, Settings={SettingsFile}");
         }
 
         private void InitializeDirectories()
@@ -66,6 +71,7 @@ namespace LocalMessenger
             Directory.CreateDirectory(AppDataPath);
             Directory.CreateDirectory(AttachmentsPath);
             Directory.CreateDirectory(HistoryPath);
+            Logger.Log("Directories created or verified");
         }
 
         private void LoadSettings()
@@ -77,6 +83,7 @@ namespace LocalMessenger
                     var json = File.ReadAllText(SettingsFile);
                     if (string.IsNullOrWhiteSpace(json))
                     {
+                        Logger.Log("Settings file is empty. Showing registration form.");
                         ShowRegistrationForm();
                         return;
                     }
@@ -88,20 +95,24 @@ namespace LocalMessenger
                         myStatus = settings.ContainsKey("status") ? settings["status"] : "Online";
                         cmbStatus.SelectedItem = myStatus;
                         UpdateStatusAndIP();
+                        Logger.Log($"Settings loaded: Login={myLogin}, Name={myName}, Status={myStatus}");
                     }
                     else
                     {
+                        Logger.Log("Settings file is invalid. Showing registration form.");
                         ShowRegistrationForm();
                     }
                 }
                 catch (Exception ex)
                 {
+                    Logger.Log($"Error loading settings: {ex.Message}");
                     MessageBox.Show($"Error loading settings: {ex.Message}");
                     ShowRegistrationForm();
                 }
             }
             else
             {
+                Logger.Log("Settings file not found. Showing registration form.");
                 ShowRegistrationForm();
             }
         }
@@ -117,10 +128,12 @@ namespace LocalMessenger
                     myStatus = "Online";
                     SaveSettings();
                     UpdateStatusAndIP();
-                    AddCurrentUserToContacts(); // Добавляем текущего пользователя после регистрации
+                    AddCurrentUserToContacts();
+                    Logger.Log($"User registered: Login={myLogin}, Name={myName}");
                 }
                 else
                 {
+                    Logger.Log("Registration cancelled. Exiting application.");
                     Application.Exit();
                 }
             }
@@ -128,10 +141,60 @@ namespace LocalMessenger
 
         private void InitializeNetwork()
         {
-            udpClient = new UdpClient();
-            udpClient.EnableBroadcast = true;
-            tcpListener = new TcpListener(IPAddress.Any, 12000);
+            try
+            {
+                udpListener = new UdpClient(new IPEndPoint(IPAddress.Any, 11000));
+                Logger.Log($"UDP listener initialized and bound to 0.0.0.0:11000");
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Error initializing UDP listener: {ex.Message}");
+                throw;
+            }
+
+            try
+            {
+                udpSender = new UdpClient();
+                udpSender.Client.Bind(new IPEndPoint(IPAddress.Parse(myIP), 0));
+                udpSender.EnableBroadcast = true;
+                Logger.Log($"UDP sender initialized and bound to {myIP}:0 with broadcast enabled");
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Error initializing UDP sender: {ex.Message}");
+                throw;
+            }
+
+            try
+            {
+                tcpListener = new TcpListener(IPAddress.Any, 12000);
+                Logger.Log("TCP listener initialized for port 12000");
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Error initializing TCP listener: {ex.Message}");
+                throw;
+            }
+
+            LogNetworkInterfaces();
             InitializeECDH();
+        }
+
+        private void LogNetworkInterfaces()
+        {
+            var interfaces = NetworkInterface.GetAllNetworkInterfaces()
+                .Where(n => n.OperationalStatus == OperationalStatus.Up && 
+                           n.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+                .ToList();
+            Logger.Log("Available network interfaces:");
+            foreach (var ni in interfaces)
+            {
+                var ipProps = ni.GetIPProperties();
+                var ipAddresses = ipProps.UnicastAddresses
+                    .Where(ip => ip.Address.AddressFamily == AddressFamily.InterNetwork)
+                    .Select(ip => ip.Address.ToString());
+                Logger.Log($"Interface: {ni.Name}, IPs: {string.Join(", ", ipAddresses)}");
+            }
         }
 
         private void InitializeECDH()
@@ -139,6 +202,7 @@ namespace LocalMessenger
             myECDH = new ECDiffieHellmanCng();
             myECDH.KeyDerivationFunction = ECDiffieHellmanKeyDerivationFunction.Hash;
             myECDH.HashAlgorithm = CngAlgorithm.Sha256;
+            Logger.Log("ECDH initialized with SHA256");
         }
 
         private static string GetLocalIPAddress()
@@ -146,7 +210,9 @@ namespace LocalMessenger
             var interfaces = NetworkInterface.GetAllNetworkInterfaces()
                 .Where(n => n.OperationalStatus == OperationalStatus.Up && 
                            n.NetworkInterfaceType != NetworkInterfaceType.Loopback &&
-                           !n.Name.ToLower().Contains("virtualbox"))
+                           !n.Name.ToLower().Contains("virtualbox") &&
+                           !n.Name.ToLower().Contains("vmware") &&
+                           !n.Name.ToLower().Contains("virtual"))
                 .ToList();
 
             foreach (var ni in interfaces)
@@ -161,6 +227,7 @@ namespace LocalMessenger
                             var ipBytes = ip.Address.GetAddressBytes();
                             if (ipBytes[0] == 192 && ipBytes[1] == 168 && ipBytes[2] != 56)
                             {
+                                Logger.Log($"Selected IP address: {ip.Address} (Interface: {ni.Name})");
                                 return ip.Address.ToString();
                             }
                         }
@@ -178,12 +245,14 @@ namespace LocalMessenger
                         var ipBytes = ip.Address.GetAddressBytes();
                         if (ipBytes[0] == 192 && ipBytes[1] == 168 && ipBytes[2] != 56)
                         {
+                            Logger.Log($"Selected fallback IP address: {ip.Address} (Interface: {ni.Name})");
                             return ip.Address.ToString();
                         }
                     }
                 }
             }
 
+            Logger.Log("No suitable network interface found in 192.168.0.0/16 range, excluding virtual networks");
             throw new Exception("No network interface found with an IP address in the 192.168.0.0/16 range, excluding virtual networks!");
         }
 
@@ -192,11 +261,13 @@ namespace LocalMessenger
             if (!lstContacts.Items.Contains(myLogin))
             {
                 lstContacts.Items.Add(myLogin);
+                Logger.Log($"Added current user to contacts: {myLogin}");
             }
         }
 
         private async void StartUdpBroadcast()
         {
+            Logger.Log("Starting UDP broadcast for user discovery");
             while (true)
             {
                 try
@@ -204,12 +275,65 @@ namespace LocalMessenger
                     var publicKey = GetMyPublicKey();
                     var data = $"HELLO|{myLogin}|{myName}|{myStatus}|{Convert.ToBase64String(publicKey)}";
                     var bytes = Encoding.UTF8.GetBytes(data);
-                    await udpClient.SendAsync(bytes, bytes.Length, new IPEndPoint(IPAddress.Broadcast, 11000));
-                    await Task.Delay(2000); // Поиск каждые 2 секунды
+                    await udpSender.SendAsync(bytes, bytes.Length, new IPEndPoint(IPAddress.Broadcast, 11000));
+                    Logger.Log($"Sent HELLO broadcast from {myIP}: {data}");
+                    await Task.Delay(2000);
                 }
                 catch (Exception ex)
                 {
+                    Logger.Log($"Broadcast error: {ex.Message}");
                     MessageBox.Show($"Broadcast error: {ex.Message}");
+                }
+            }
+        }
+
+        private async void StartUdpListener()
+        {
+            Logger.Log("Starting UDP listener on port 11000");
+            while (true)
+            {
+                try
+                {
+                    var result = await udpListener.ReceiveAsync();
+                    var message = Encoding.UTF8.GetString(result.Buffer);
+                    var remoteIP = result.RemoteEndPoint.Address.ToString();
+                    Logger.Log($"Received UDP message from {remoteIP}: {message}");
+
+                    var parts = message.Split('|');
+                    if (parts.Length == 5 && parts[0] == "HELLO")
+                    {
+                        var sender = parts[1];
+                        var name = parts[2];
+                        var status = parts[3];
+                        var publicKey = Convert.FromBase64String(parts[4]);
+
+                        if (sender != myLogin)
+                        {
+                            contactPublicKeys[sender] = publicKey;
+                            contactIPs[sender] = remoteIP;
+                            if (!lstContacts.Items.Contains(sender))
+                            {
+                                lstContacts.Items.Add(sender);
+                                Logger.Log($"Added contact: {sender} (Name: {name}, Status: {status}, IP: {remoteIP})");
+                            }
+                            else
+                            {
+                                Logger.Log($"Contact already exists: {sender} (IP: {remoteIP})");
+                            }
+                        }
+                        else
+                        {
+                            Logger.Log($"Ignored own HELLO message from {remoteIP}");
+                        }
+                    }
+                    else
+                    {
+                        Logger.Log($"Invalid HELLO message format from {remoteIP}: {message}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log($"UDP listener error: {ex.Message}");
                 }
             }
         }
@@ -224,6 +348,7 @@ namespace LocalMessenger
             try
             {
                 tcpListener.Start();
+                Logger.Log("TCP server started on port 12000");
                 while (true)
                 {
                     var client = await tcpListener.AcceptTcpClientAsync();
@@ -232,6 +357,7 @@ namespace LocalMessenger
             }
             catch (Exception ex)
             {
+                Logger.Log($"Server error: {ex.Message}");
                 MessageBox.Show($"Server error: {ex.Message}");
             }
         }
@@ -240,81 +366,85 @@ namespace LocalMessenger
         {
             using (client)
             {
-                var stream = client.GetStream();
-                var buffer = new byte[4096];
-                var bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
-                var message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                var parts = message.Split('|');
-
-                if (parts[0] == "HELLO")
+                try
                 {
-                    var sender = parts[1];
-                    var name = parts[2];
-                    var status = parts[3];
-                    var publicKey = Convert.FromBase64String(parts[4]);
-                    contactPublicKeys[sender] = publicKey;
-                    if (!lstContacts.Items.Contains(sender))
+                    var remoteEndPoint = client.Client.RemoteEndPoint.ToString();
+                    Logger.Log($"Handling TCP client connection from {remoteEndPoint}");
+                    var stream = client.GetStream();
+                    var buffer = new byte[4096];
+                    var bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+                    var message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                    Logger.Log($"Received TCP message: {message}");
+                    var parts = message.Split('|');
+
+                    if (parts[0] == "KEY_EXCHANGE")
                     {
-                        lstContacts.Items.Add(sender);
+                        var sender = parts[1];
+                        var contactPublicKey = Convert.FromBase64String(parts[2]);
+                        contactPublicKeys[sender] = contactPublicKey;
+
+                        var publicKey = GetMyPublicKey();
+                        var response = $"KEY_EXCHANGE_RESPONSE|{myLogin}|{Convert.ToBase64String(publicKey)}";
+                        var bytes = Encoding.UTF8.GetBytes(response);
+                        await stream.WriteAsync(bytes, 0, bytes.Length);
+                        Logger.Log($"Sent KEY_EXCHANGE_RESPONSE to {sender}");
+
+                        var sharedKey = myECDH.DeriveKeyMaterial(CngKey.Import(contactPublicKey, CngKeyBlobFormat.EccPublicBlob));
+                        sharedKeys[sender] = sharedKey;
+                        Logger.Log($"Shared key established with {sender}");
+                    }
+                    else if (parts[0] == "KEY_EXCHANGE_RESPONSE")
+                    {
+                        var sender = parts[1];
+                        var contactPublicKey = Convert.FromBase64String(parts[2]);
+                        contactPublicKeys[sender] = contactPublicKey;
+
+                        var sharedKey = myECDH.DeriveKeyMaterial(CngKey.Import(contactPublicKey, CngKeyBlobFormat.EccPublicBlob));
+                        sharedKeys[sender] = sharedKey;
+                        Logger.Log($"Shared key established with {sender}");
+                    }
+                    else if (parts[0] == "MESSAGE")
+                    {
+                        var sender = parts[1];
+                        var encryptedMessage = Convert.FromBase64String(parts[2]);
+                        var nonce = Convert.FromBase64String(parts[3]);
+                        var tag = Convert.FromBase64String(parts[4]);
+
+                        var decrypted = Decrypt(encryptedMessage, sharedKeys[sender], nonce, tag);
+                        UpdateHistory(sender, decrypted, isReceived: true);
+                        Logger.Log($"Received MESSAGE from {sender}: {decrypted}");
+                    }
+                    else if (parts[0] == "GROUP_MESSAGE")
+                    {
+                        var groupID = parts[1];
+                        var sender = parts[5];
+                        var encryptedMessage = Convert.FromBase64String(parts[2]);
+                        var nonce = Convert.FromBase64String(parts[3]);
+                        var tag = Convert.FromBase64String(parts[4]);
+
+                        var decrypted = Decrypt(encryptedMessage, groupKeys[groupID], nonce, tag);
+                        UpdateGroupHistory(groupID, decrypted, isReceived: true);
+                        Logger.Log($"Received GROUP_MESSAGE for {groupID} from {sender}: {decrypted}");
+                    }
+                    else if (parts[0] == "GROUP_KEY")
+                    {
+                        var groupID = parts[1];
+                        var sender = parts[5];
+                        var encryptedGroupKey = Convert.FromBase64String(parts[2]);
+                        var nonce = Convert.FromBase64String(parts[3]);
+                        var tag = Convert.FromBase64String(parts[4]);
+
+                        if (sharedKeys.ContainsKey(sender))
+                        {
+                            var decryptedGroupKeyString = Decrypt(encryptedGroupKey, sharedKeys[sender], nonce, tag);
+                            groupKeys[groupID] = Convert.FromBase64String(decryptedGroupKeyString);
+                            Logger.Log($"Received GROUP_KEY for {groupID} from {sender}");
+                        }
                     }
                 }
-                else if (parts[0] == "KEY_EXCHANGE")
+                catch (Exception ex)
                 {
-                    var sender = parts[1];
-                    var contactPublicKey = Convert.FromBase64String(parts[2]);
-                    contactPublicKeys[sender] = contactPublicKey;
-
-                    var publicKey = GetMyPublicKey();
-                    var response = $"KEY_EXCHANGE_RESPONSE|{myLogin}|{Convert.ToBase64String(publicKey)}";
-                    var bytes = Encoding.UTF8.GetBytes(response);
-                    await stream.WriteAsync(bytes, 0, bytes.Length);
-
-                    var sharedKey = myECDH.DeriveKeyMaterial(CngKey.Import(contactPublicKey, CngKeyBlobFormat.EccPublicBlob));
-                    sharedKeys[sender] = sharedKey;
-                }
-                else if (parts[0] == "KEY_EXCHANGE_RESPONSE")
-                {
-                    var sender = parts[1];
-                    var contactPublicKey = Convert.FromBase64String(parts[2]);
-                    contactPublicKeys[sender] = contactPublicKey;
-
-                    var sharedKey = myECDH.DeriveKeyMaterial(CngKey.Import(contactPublicKey, CngKeyBlobFormat.EccPublicBlob));
-                    sharedKeys[sender] = sharedKey;
-                }
-                else if (parts[0] == "MESSAGE")
-                {
-                    var sender = parts[1];
-                    var encryptedMessage = Convert.FromBase64String(parts[2]);
-                    var nonce = Convert.FromBase64String(parts[3]);
-                    var tag = Convert.FromBase64String(parts[4]);
-
-                    var decrypted = Decrypt(encryptedMessage, sharedKeys[sender], nonce, tag);
-                    UpdateHistory(sender, decrypted, isReceived: true);
-                }
-                else if (parts[0] == "GROUP_MESSAGE")
-                {
-                    var groupID = parts[1];
-                    var sender = parts[5];
-                    var encryptedMessage = Convert.FromBase64String(parts[2]);
-                    var nonce = Convert.FromBase64String(parts[3]);
-                    var tag = Convert.FromBase64String(parts[4]);
-
-                    var decrypted = Decrypt(encryptedMessage, groupKeys[groupID], nonce, tag);
-                    UpdateGroupHistory(groupID, decrypted, isReceived: true);
-                }
-                else if (parts[0] == "GROUP_KEY")
-                {
-                    var groupID = parts[1];
-                    var encryptedGroupKey = Convert.FromBase64String(parts[2]);
-                    var nonce = Convert.FromBase64String(parts[3]);
-                    var tag = Convert.FromBase64String(parts[4]);
-                    var sender = parts[5];
-
-                    if (sharedKeys.ContainsKey(sender))
-                    {
-                        var decryptedGroupKeyString = Decrypt(encryptedGroupKey, sharedKeys[sender], nonce, tag);
-                        groupKeys[groupID] = Convert.FromBase64String(decryptedGroupKeyString);
-                    }
+                    Logger.Log($"Error handling client {client.Client.RemoteEndPoint}: {ex.Message}");
                 }
             }
         }
@@ -375,11 +505,12 @@ namespace LocalMessenger
             {
                 UpdateHistoryDisplay(contact);
             }
+            Logger.Log($"Updated history for {contact}: {(isReceived ? "Received" : "Sent")} - {message}");
         }
 
         private void UpdateGroupHistory(string groupID, string message, bool isReceived)
         {
-            // Реализация для групповых сообщений
+            Logger.Log($"Updated group history for {groupID}: {(isReceived ? "Received" : "Sent")} - {message}");
         }
 
         private void UpdateHistoryDisplay(string contact)
@@ -390,19 +521,29 @@ namespace LocalMessenger
             {
                 rtbHistory.AppendText($"[{msg.Timestamp}] {msg.Sender}: {msg.Content}\n");
             }
+            Logger.Log($"Displayed history for {contact}");
         }
 
         private async void btnSend_Click(object sender, EventArgs e)
         {
             var selectedContact = lstContacts.SelectedItem?.ToString();
+            if (selectedContact == myLogin)
+            {
+                Logger.Log("Attempted to send message to self. Ignored.");
+                MessageBox.Show("Cannot send messages to yourself.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
             if (selectedContact != null && txtMessage.Text.Length > 0)
             {
                 byte[] sharedKey = null;
+                string contactIP = contactIPs.ContainsKey(selectedContact) ? contactIPs[selectedContact] : selectedContact;
                 if (!sharedKeys.ContainsKey(selectedContact))
                 {
-                    sharedKey = await ExchangeKeysWithContactAsync(selectedContact);
+                    sharedKey = await ExchangeKeysWithContactAsync(contactIP);
                     if (sharedKey == null)
                     {
+                        Logger.Log($"Failed to establish connection with {selectedContact} (IP: {contactIP})");
                         MessageBox.Show($"Failed to establish connection with {selectedContact}");
                         return;
                     }
@@ -416,16 +557,18 @@ namespace LocalMessenger
                 var encrypted = Encrypt(txtMessage.Text, sharedKey, nonce);
 
                 var message = $"MESSAGE|{myLogin}|{Convert.ToBase64String(encrypted)}|{Convert.ToBase64String(nonce)}|{Convert.ToBase64String(new byte[16])}";
-                bool sent = await SendTcpMessageAsync(selectedContact, message);
+                bool sent = await SendTcpMessageAsync(contactIP, message);
 
                 if (sent)
                 {
                     UpdateHistory(selectedContact, txtMessage.Text, isReceived: false);
                     txtMessage.Clear();
+                    Logger.Log($"Message sent to {selectedContact} (IP: {contactIP}): {txtMessage.Text}");
                 }
                 else
                 {
-                    bufferManager.AddToBuffer(selectedContact, message);
+                    bufferManager.AddToBuffer(contactIP, message);
+                    Logger.Log($"Message for {selectedContact} (IP: {contactIP}) added to buffer: {txtMessage.Text}");
                     MessageBox.Show($"Message for {selectedContact} added to buffer due to send failure.");
                 }
             }
@@ -437,6 +580,7 @@ namespace LocalMessenger
             {
                 try
                 {
+                    Logger.Log($"Initiating key exchange with {contactIP}");
                     await client.ConnectAsync(contactIP, 12000);
                     var stream = client.GetStream();
 
@@ -444,10 +588,12 @@ namespace LocalMessenger
                     var message = $"KEY_EXCHANGE|{myLogin}|{Convert.ToBase64String(publicKey)}";
                     var bytes = Encoding.UTF8.GetBytes(message);
                     await stream.WriteAsync(bytes, 0, bytes.Length);
+                    Logger.Log($"Sent KEY_EXCHANGE to {contactIP}");
 
                     var buffer = new byte[4096];
                     var bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
                     var response = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                    Logger.Log($"Received response: {response}");
                     var parts = response.Split('|');
 
                     if (parts[0] == "KEY_EXCHANGE_RESPONSE")
@@ -458,11 +604,14 @@ namespace LocalMessenger
 
                         var sharedKey = myECDH.DeriveKeyMaterial(CngKey.Import(contactPublicKey, CngKeyBlobFormat.EccPublicBlob));
                         sharedKeys[sender] = sharedKey;
+                        contactIPs[sender] = contactIP;
+                        Logger.Log($"Key exchange completed with {sender} (IP: {contactIP})");
                         return sharedKey;
                     }
                 }
                 catch (Exception ex)
                 {
+                    Logger.Log($"Key exchange error with {contactIP}: {ex.Message}");
                     MessageBox.Show($"Key exchange error: {ex.Message}");
                 }
             }
@@ -475,16 +624,19 @@ namespace LocalMessenger
             {
                 try
                 {
+                    Logger.Log($"Sending TCP message to {contactIP}: {message}");
                     await client.ConnectAsync(contactIP, 12000);
                     using (var stream = client.GetStream())
                     {
                         var bytes = Encoding.UTF8.GetBytes(message);
                         await stream.WriteAsync(bytes, 0, bytes.Length);
                     }
+                    Logger.Log($"Message sent successfully to {contactIP}");
                     return true;
                 }
                 catch (Exception ex)
                 {
+                    Logger.Log($"Message send error to {contactIP}: {ex.Message}");
                     MessageBox.Show($"Message send error: {ex.Message}");
                     return false;
                 }
@@ -494,15 +646,18 @@ namespace LocalMessenger
         private async void TrySendBufferedMessagesAsync()
         {
             var messages = bufferManager.GetBuffer();
+            Logger.Log($"Attempting to send {messages.Count} buffered messages");
             foreach (var msg in messages.ToList())
             {
                 bool success = await SendTcpMessageAsync(msg.ContactIP, msg.Message);
                 if (success)
                 {
                     bufferManager.RemoveFromBuffer(msg);
+                    Logger.Log($"Buffered message sent to {msg.ContactIP}");
                 }
                 else
                 {
+                    Logger.Log($"Failed to send buffered message to {msg.ContactIP}: {msg.Message}");
                     MessageBox.Show($"Failed to send buffered message to {msg.ContactIP}: {msg.Message}");
                 }
             }
@@ -513,13 +668,16 @@ namespace LocalMessenger
             lblStatus.Text = $"Status: {myStatus}";
             lblIP.Text = $"IP: {myIP}";
             lblUserInfo.Text = $"User: {myLogin} ({myName})";
+            Logger.Log($"Updated UI: Status={myStatus}, IP={myIP}, User={myLogin} ({myName})");
         }
 
         private void UpdateSendControlsState()
         {
             bool isContactSelected = lstContacts.SelectedItem != null;
-            btnSend.Enabled = isContactSelected;
-            txtMessage.Enabled = isContactSelected;
+            bool isSelfSelected = lstContacts.SelectedItem?.ToString() == myLogin;
+            btnSend.Enabled = isContactSelected && !isSelfSelected;
+            txtMessage.Enabled = isContactSelected && !isSelfSelected;
+            Logger.Log($"Send controls state updated: Enabled={isContactSelected && !isSelfSelected}, Selected={lstContacts.SelectedItem?.ToString() ?? "None"}");
         }
 
         private void cmbStatus_SelectedIndexChanged(object sender, EventArgs e)
@@ -527,6 +685,7 @@ namespace LocalMessenger
             myStatus = cmbStatus.SelectedItem.ToString();
             UpdateStatusAndIP();
             SaveSettings();
+            Logger.Log($"Status changed to {myStatus}");
         }
 
         private void lstContacts_SelectedIndexChanged(object sender, EventArgs e)
@@ -536,21 +695,31 @@ namespace LocalMessenger
             {
                 UpdateHistoryDisplay(lstContacts.SelectedItem.ToString());
             }
+            Logger.Log($"Selected contact: {lstContacts.SelectedItem?.ToString() ?? "None"}");
         }
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
             SaveSettings();
             bufferManager.SaveBuffer();
-            if (udpClient != null)
+            if (udpListener != null)
             {
-                udpClient.Close();
-                udpClient.Dispose();
+                udpListener.Close();
+                udpListener.Dispose();
+                Logger.Log("UDP listener closed");
+            }
+            if (udpSender != null)
+            {
+                udpSender.Close();
+                udpSender.Dispose();
+                Logger.Log("UDP sender closed");
             }
             if (tcpListener != null)
             {
                 tcpListener.Stop();
+                Logger.Log("TCP listener stopped");
             }
+            Logger.Log("Application closing");
         }
 
         private void SaveSettings()
@@ -564,15 +733,18 @@ namespace LocalMessenger
             try
             {
                 File.WriteAllText(SettingsFile, Newtonsoft.Json.JsonConvert.SerializeObject(settings));
+                Logger.Log("Settings saved successfully");
             }
             catch (Exception ex)
             {
+                Logger.Log($"Error saving settings: {ex.Message}");
                 MessageBox.Show($"Error saving settings: {ex.Message}");
             }
         }
 
         private void btnExit_Click(object sender, EventArgs e)
         {
+            Logger.Log("Exit button clicked");
             SaveSettings();
             bufferManager.SaveBuffer();
             Application.Exit();
@@ -582,16 +754,19 @@ namespace LocalMessenger
         {
             try
             {
+                Logger.Log("Opening settings folder");
                 Process.Start("explorer.exe", AppDataPath);
             }
             catch (Exception ex)
             {
+                Logger.Log($"Error opening settings folder: {ex.Message}");
                 MessageBox.Show($"Error opening settings folder: {ex.Message}");
             }
         }
 
         private void btnDeleteAccount_Click(object sender, EventArgs e)
         {
+            Logger.Log("Delete account initiated");
             var result = MessageBox.Show("Are you sure you want to delete your account? This will remove all user settings.", 
                 "Confirm Account Deletion", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
             if (result == DialogResult.Yes)
@@ -601,14 +776,21 @@ namespace LocalMessenger
                     if (File.Exists(SettingsFile))
                     {
                         File.Delete(SettingsFile);
+                        Logger.Log("Account settings deleted");
                     }
+                    Logger.Log("Account deletion confirmed. Closing application.");
                     MessageBox.Show("Account deleted. The application will close.");
                     Application.Exit();
                 }
                 catch (Exception ex)
                 {
+                    Logger.Log($"Error deleting account: {ex.Message}");
                     MessageBox.Show($"Error deleting account: {ex.Message}");
                 }
+            }
+            else
+            {
+                Logger.Log("Account deletion cancelled");
             }
         }
 
@@ -619,6 +801,7 @@ namespace LocalMessenger
             {
                 rng.GetBytes(key);
             }
+            Logger.Log("Generated encryption key");
             return key;
         }
 
@@ -627,6 +810,7 @@ namespace LocalMessenger
             this.WindowState = FormWindowState.Normal;
             this.ShowInTaskbar = true;
             notifyIcon.Visible = false;
+            Logger.Log("Notification icon double-clicked. Restored.");
         }
 
         private void MainForm_Resize(object sender, EventArgs e)
@@ -639,11 +823,13 @@ namespace LocalMessenger
                 notifyIcon.BalloonTipText = "LocalMessenger";
                 notifyIcon.BalloonTipTitle = "LocalMessenger";
                 notifyIcon.ShowBalloonTip(500);
+                Logger.Log("Application minimized to tray");
             }
         }
 
         private async void btnCreateGroup_Click(object sender, EventArgs e)
         {
+            Logger.Log("Creating group");
             using (var form = new GroupCreationForm())
             {
                 if (form.ShowDialog() == DialogResult.OK)
@@ -652,14 +838,17 @@ namespace LocalMessenger
                     var members = form.SelectedMembers;
                     var groupKey = GenerateGroupKey();
                     groupKeys[groupID] = groupKey;
+                    Logger.Log($"Group created: ID={groupID}, Members={string.Join(",", members)}");
 
                     foreach (var member in members)
                     {
+                        string contactIP = contactIPs.ContainsKey(member) ? contactIPs[member] : member;
                         if (!sharedKeys.ContainsKey(member))
                         {
-                            var sharedKey = await ExchangeKeysWithContactAsync(member);
+                            var sharedKey = await ExchangeKeysWithContactAsync(contactIP);
                             if (sharedKey == null)
                             {
+                                Logger.Log($"Failed to establish connection with {member}");
                                 MessageBox.Show($"Failed to establish connection with {member}");
                                 continue;
                             }
@@ -670,13 +859,18 @@ namespace LocalMessenger
                         var groupKeyString = Convert.ToBase64String(groupKey);
                         var encryptedGroupKey = Encrypt(groupKeyString, memberSharedKey, nonce);
                         var message = $"GROUP_KEY|{groupID}|{Convert.ToBase64String(encryptedGroupKey)}|{Convert.ToBase64String(nonce)}|{Convert.ToBase64String(new byte[16])}|{myLogin}";
-                        bool sent = await SendTcpMessageAsync(member, message);
+                        bool sent = await SendTcpMessageAsync(contactIP, message);
                         if (!sent)
                         {
-                            bufferManager.AddToBuffer(member, message);
+                            bufferManager.AddToBuffer(contactIP, message);
+                            Logger.Log($"Group key for {member} added to buffer");
                             MessageBox.Show($"Group key for {member} added to buffer due to send failure.");
                         }
                     }
+                }
+                else
+                {
+                    Logger.Log("Group creation cancelled");
                 }
             }
         }
@@ -688,6 +882,7 @@ namespace LocalMessenger
             {
                 rng.GetBytes(key);
             }
+            Logger.Log("Generated group key");
             return key;
         }
     }
