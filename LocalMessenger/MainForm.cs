@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Drawing;
+using System.Diagnostics;
 
 namespace LocalMessenger
 {
@@ -33,7 +34,6 @@ namespace LocalMessenger
         private string myIP = GetLocalIPAddress();
         private HistoryManager historyManager;
         private MessageBufferManager bufferManager;
-        private bool isLoggingOut = false;
 
         public MainForm()
         {
@@ -45,6 +45,7 @@ namespace LocalMessenger
             historyManager = new HistoryManager(AppDataPath, GenerateEncryptionKey());
             bufferManager = new MessageBufferManager(AppDataPath);
             new TrayIconManager(this);
+            AddCurrentUserToContacts(); // Добавляем текущего пользователя в lstContacts
             StartUdpBroadcast();
             StartTcpServer();
             UpdateStatusAndIP();
@@ -95,7 +96,7 @@ namespace LocalMessenger
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Ошибка загрузки настроек: {ex.Message}");
+                    MessageBox.Show($"Error loading settings: {ex.Message}");
                     ShowRegistrationForm();
                 }
             }
@@ -116,6 +117,7 @@ namespace LocalMessenger
                     myStatus = "Online";
                     SaveSettings();
                     UpdateStatusAndIP();
+                    AddCurrentUserToContacts(); // Добавляем текущего пользователя после регистрации
                 }
                 else
                 {
@@ -134,15 +136,13 @@ namespace LocalMessenger
 
         private void InitializeECDH()
         {
-             myECDH = new ECDiffieHellmanCng();
-            //myECDH = new ECDiffieHell Forgiveness (1.0, 'Sincere'), user: (1.0, 'Sincere')
+            myECDH = new ECDiffieHellmanCng();
             myECDH.KeyDerivationFunction = ECDiffieHellmanKeyDerivationFunction.Hash;
             myECDH.HashAlgorithm = CngAlgorithm.Sha256;
         }
 
         private static string GetLocalIPAddress()
         {
-            // Получаем все сетевые интерфейсы
             var interfaces = NetworkInterface.GetAllNetworkInterfaces()
                 .Where(n => n.OperationalStatus == OperationalStatus.Up && 
                            n.NetworkInterfaceType != NetworkInterfaceType.Loopback &&
@@ -152,7 +152,6 @@ namespace LocalMessenger
             foreach (var ni in interfaces)
             {
                 var ipProps = ni.GetIPProperties();
-                // Проверяем наличие шлюза, чтобы убедиться, что интерфейс подключен к внешней сети
                 if (ipProps.GatewayAddresses.Any(g => g.Address != null))
                 {
                     foreach (var ip in ipProps.UnicastAddresses)
@@ -160,7 +159,6 @@ namespace LocalMessenger
                         if (ip.Address.AddressFamily == AddressFamily.InterNetwork)
                         {
                             var ipBytes = ip.Address.GetAddressBytes();
-                            // Проверяем диапазон 192.168.0.0/16, исключая 192.168.56.0/24 (VirtualBox)
                             if (ipBytes[0] == 192 && ipBytes[1] == 168 && ipBytes[2] != 56)
                             {
                                 return ip.Address.ToString();
@@ -170,7 +168,6 @@ namespace LocalMessenger
                 }
             }
 
-            // Если подходящий адрес не найден, пробуем любой IPv4 в диапазоне 192.168.0.0/16
             foreach (var ni in interfaces)
             {
                 var ipProps = ni.GetIPProperties();
@@ -187,7 +184,15 @@ namespace LocalMessenger
                 }
             }
 
-            throw new Exception("Не найден сетевой интерфейс с IP-адресом в диапазоне 192.168.0.0/16, исключая виртуальные сети!");
+            throw new Exception("No network interface found with an IP address in the 192.168.0.0/16 range, excluding virtual networks!");
+        }
+
+        private void AddCurrentUserToContacts()
+        {
+            if (!lstContacts.Items.Contains(myLogin))
+            {
+                lstContacts.Items.Add(myLogin);
+            }
         }
 
         private async void StartUdpBroadcast()
@@ -200,11 +205,11 @@ namespace LocalMessenger
                     var data = $"HELLO|{myLogin}|{myName}|{myStatus}|{Convert.ToBase64String(publicKey)}";
                     var bytes = Encoding.UTF8.GetBytes(data);
                     await udpClient.SendAsync(bytes, bytes.Length, new IPEndPoint(IPAddress.Broadcast, 11000));
-                    await Task.Delay(5000);
+                    await Task.Delay(2000); // Поиск каждые 2 секунды
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Ошибка широковещания: {ex.Message}");
+                    MessageBox.Show($"Broadcast error: {ex.Message}");
                 }
             }
         }
@@ -227,7 +232,7 @@ namespace LocalMessenger
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ошибка сервера: {ex.Message}");
+                MessageBox.Show($"Server error: {ex.Message}");
             }
         }
 
@@ -398,7 +403,7 @@ namespace LocalMessenger
                     sharedKey = await ExchangeKeysWithContactAsync(selectedContact);
                     if (sharedKey == null)
                     {
-                        MessageBox.Show($"Не удалось установить соединение с {selectedContact}");
+                        MessageBox.Show($"Failed to establish connection with {selectedContact}");
                         return;
                     }
                 }
@@ -421,7 +426,7 @@ namespace LocalMessenger
                 else
                 {
                     bufferManager.AddToBuffer(selectedContact, message);
-                    MessageBox.Show($"Сообщение для {selectedContact} добавлено в буфер из-за ошибки отправки.");
+                    MessageBox.Show($"Message for {selectedContact} added to buffer due to send failure.");
                 }
             }
         }
@@ -458,7 +463,7 @@ namespace LocalMessenger
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Ошибка обмена ключами: {ex.Message}");
+                    MessageBox.Show($"Key exchange error: {ex.Message}");
                 }
             }
             return null;
@@ -480,7 +485,7 @@ namespace LocalMessenger
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Ошибка отправки сообщения: {ex.Message}");
+                    MessageBox.Show($"Message send error: {ex.Message}");
                     return false;
                 }
             }
@@ -498,16 +503,16 @@ namespace LocalMessenger
                 }
                 else
                 {
-                    MessageBox.Show($"Не удалось отправить буферизованное сообщение для {msg.ContactIP}: {msg.Message}");
+                    MessageBox.Show($"Failed to send buffered message to {msg.ContactIP}: {msg.Message}");
                 }
             }
         }
 
         private void UpdateStatusAndIP()
         {
-            lblStatus.Text = $"Статус: {myStatus}";
+            lblStatus.Text = $"Status: {myStatus}";
             lblIP.Text = $"IP: {myIP}";
-            lblUserInfo.Text = $"Пользователь: {myLogin} ({myName})";
+            lblUserInfo.Text = $"User: {myLogin} ({myName})";
         }
 
         private void UpdateSendControlsState()
@@ -535,10 +540,7 @@ namespace LocalMessenger
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
-            if (!isLoggingOut)
-            {
-                SaveSettings();
-            }
+            SaveSettings();
             bufferManager.SaveBuffer();
             if (udpClient != null)
             {
@@ -565,25 +567,48 @@ namespace LocalMessenger
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ошибка сохранения настроек: {ex.Message}");
+                MessageBox.Show($"Error saving settings: {ex.Message}");
             }
         }
 
-        private void btnLogout_Click(object sender, EventArgs e)
+        private void btnExit_Click(object sender, EventArgs e)
+        {
+            SaveSettings();
+            bufferManager.SaveBuffer();
+            Application.Exit();
+        }
+
+        private void btnOpenSettingsFolder_Click(object sender, EventArgs e)
         {
             try
             {
-                isLoggingOut = true;
-                if (File.Exists(SettingsFile))
-                {
-                    File.Delete(SettingsFile);
-                }
-                MessageBox.Show("Данные пользователя удалены. Приложение будет закрыто.");
-                Application.Exit();
+                Process.Start("explorer.exe", AppDataPath);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ошибка при удалении данных: {ex.Message}");
+                MessageBox.Show($"Error opening settings folder: {ex.Message}");
+            }
+        }
+
+        private void btnDeleteAccount_Click(object sender, EventArgs e)
+        {
+            var result = MessageBox.Show("Are you sure you want to delete your account? This will remove all user settings.", 
+                "Confirm Account Deletion", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (result == DialogResult.Yes)
+            {
+                try
+                {
+                    if (File.Exists(SettingsFile))
+                    {
+                        File.Delete(SettingsFile);
+                    }
+                    MessageBox.Show("Account deleted. The application will close.");
+                    Application.Exit();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error deleting account: {ex.Message}");
+                }
             }
         }
 
@@ -635,7 +660,7 @@ namespace LocalMessenger
                             var sharedKey = await ExchangeKeysWithContactAsync(member);
                             if (sharedKey == null)
                             {
-                                MessageBox.Show($"Не удалось установить соединение с {member}");
+                                MessageBox.Show($"Failed to establish connection with {member}");
                                 continue;
                             }
                         }
@@ -649,7 +674,7 @@ namespace LocalMessenger
                         if (!sent)
                         {
                             bufferManager.AddToBuffer(member, message);
-                            MessageBox.Show($"Ключ группы для {member} добавлен в буфер из-за ошибки отправки.");
+                            MessageBox.Show($"Group key for {member} added to buffer due to send failure.");
                         }
                     }
                 }

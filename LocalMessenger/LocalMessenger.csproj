@@ -59,6 +59,7 @@
       <DependentUpon>GroupCreationForm.cs</DependentUpon>
     </Compile>
     <Compile Include="HistoryManager.cs" />
+    <Compile Include="Logger.cs" />
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>
     </Compile>
