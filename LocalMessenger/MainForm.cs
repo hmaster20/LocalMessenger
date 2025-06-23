@@ -24,20 +24,14 @@ namespace LocalMessenger
         private ECDiffieHellmanCng myECDH;
         private Dictionary<string, byte[]> contactPublicKeys = new Dictionary<string, byte[]>();
         private Dictionary<string, byte[]> sharedKeys = new Dictionary<string, byte[]>();
-        private Dictionary<string, byte[]> groupKeys = new Dictionary<string, byte[]>(); // Исправлено: byte[] вместо string
+        private Dictionary<string, byte[]> groupKeys = new Dictionary<string, byte[]>();
 
         private string myLogin;
         private string myName;
         private string myStatus = "Online";
         private string myIP = GetLocalIPAddress();
-
-        //// Элементы интерфейса
-        //private ListBox lstContacts;
-        //private TextBox txtMessage;
-        //private ComboBox cmbStatus;
-        //private NotifyIcon notifyIcon;
-        //private Button btnSend;
-        //private Button btnCreateGroup;
+        private HistoryManager historyManager;
+        private MessageBufferManager bufferManager;
 
         public MainForm()
         {
@@ -46,9 +40,13 @@ namespace LocalMessenger
             InitializeDirectories();
             LoadSettings();
             InitializeNetwork();
-            new TrayIconManager(this); // Инициализация TrayIcon
+            historyManager = new HistoryManager(AppDataPath, GenerateEncryptionKey());
+            bufferManager = new MessageBufferManager(AppDataPath);
+            new TrayIconManager(this);
             StartUdpBroadcast();
             StartTcpServer();
+            UpdateStatusAndIP();
+            TrySendBufferedMessagesAsync();
         }
 
         private void InitializePaths()
@@ -75,6 +73,7 @@ namespace LocalMessenger
                 myLogin = settings["login"];
                 myName = settings["name"];
                 myStatus = settings.ContainsKey("status") ? settings["status"] : "Online";
+                cmbStatus.SelectedItem = myStatus;
             }
             else
             {
@@ -247,12 +246,12 @@ namespace LocalMessenger
                     var encryptedGroupKey = Convert.FromBase64String(parts[2]);
                     var nonce = Convert.FromBase64String(parts[3]);
                     var tag = Convert.FromBase64String(parts[4]);
-                    var sender = parts[5]; // Исправлено: правильное получение отправителя
+                    var sender = parts[5];
 
                     if (sharedKeys.ContainsKey(sender))
                     {
                         var decryptedGroupKeyString = Decrypt(encryptedGroupKey, sharedKeys[sender], nonce, tag);
-                        groupKeys[groupID] = Convert.FromBase64String(decryptedGroupKeyString); // Исправлено: преобразование string в byte[]
+                        groupKeys[groupID] = Convert.FromBase64String(decryptedGroupKeyString);
                     }
                 }
             }
@@ -293,7 +292,7 @@ namespace LocalMessenger
 
         private byte[] GenerateNonce()
         {
-            var nonce = new byte[16]; // 128-bit nonce for AES
+            var nonce = new byte[16];
             using (var rng = new RNGCryptoServiceProvider())
             {
                 rng.GetBytes(nonce);
@@ -303,12 +302,32 @@ namespace LocalMessenger
 
         private void UpdateHistory(string contact, string message, bool isReceived)
         {
-            // Логика обновления интерфейса и сохранения в файл
+            var msg = new Message
+            {
+                Sender = isReceived ? contact : myLogin,
+                Content = message
+            };
+            historyManager.AddMessage(contact, msg);
+
+            if (lstContacts.SelectedItem?.ToString() == contact)
+            {
+                UpdateHistoryDisplay(contact);
+            }
         }
 
         private void UpdateGroupHistory(string groupID, string message, bool isReceived)
         {
-            // Логика обновления истории группы
+            // Реализация для групповых сообщений
+        }
+
+        private void UpdateHistoryDisplay(string contact)
+        {
+            rtbHistory.Clear();
+            var messages = historyManager.LoadMessages(contact);
+            foreach (var msg in messages)
+            {
+                rtbHistory.AppendText($"[{msg.Timestamp}] {msg.Sender}: {msg.Content}\n");
+            }
         }
 
         private async void btnSend_Click(object sender, EventArgs e)
@@ -316,23 +335,41 @@ namespace LocalMessenger
             var selectedContact = lstContacts.SelectedItem?.ToString();
             if (selectedContact != null && txtMessage.Text.Length > 0)
             {
+                byte[] sharedKey = null;
                 if (!sharedKeys.ContainsKey(selectedContact))
                 {
-                    await ExchangeKeysWithContact(selectedContact);
+                    sharedKey = await ExchangeKeysWithContactAsync(selectedContact);
+                    if (sharedKey == null)
+                    {
+                        MessageBox.Show($"Не удалось установить соединение с {selectedContact}");
+                        return;
+                    }
+                }
+                else
+                {
+                    sharedKey = sharedKeys[selectedContact];
                 }
 
-                var sharedKey = sharedKeys[selectedContact];
                 var nonce = GenerateNonce();
                 var encrypted = Encrypt(txtMessage.Text, sharedKey, nonce);
 
                 var message = $"MESSAGE|{myLogin}|{Convert.ToBase64String(encrypted)}|{Convert.ToBase64String(nonce)}|{Convert.ToBase64String(new byte[16])}";
-                SendTcpMessage(selectedContact, message);
-                UpdateHistory(selectedContact, txtMessage.Text, isReceived: false);
-                txtMessage.Clear();
+                bool sent = await SendTcpMessageAsync(selectedContact, message);
+
+                if (sent)
+                {
+                    UpdateHistory(selectedContact, txtMessage.Text, isReceived: false);
+                    txtMessage.Clear();
+                }
+                else
+                {
+                    bufferManager.AddToBuffer(selectedContact, message);
+                    MessageBox.Show($"Сообщение для {selectedContact} добавлено в буфер из-за ошибки отправки.");
+                }
             }
         }
 
-        private async Task<byte[]> ExchangeKeysWithContact(string contactIP)
+        private async Task<byte[]> ExchangeKeysWithContactAsync(string contactIP)
         {
             using (var client = new TcpClient())
             {
@@ -370,38 +407,91 @@ namespace LocalMessenger
             return null;
         }
 
-        //private void SendTcpMessage(string contactIP, string message)
-        //{
-        //    var client = new TcpClient();
-        //    client.Connect(contactIP, 12000);
-        //    var stream = client.GetStream();
-        //    var bytes = Encoding.UTF8.GetBytes(message);
-        //    stream.Write(bytes, 0, bytes.Length);
-        //}
-
-        private void SendTcpMessage(string contactIP, string message)
+        private async Task<bool> SendTcpMessageAsync(string contactIP, string message)
         {
             using (var client = new TcpClient())
             {
                 try
                 {
-                    client.Connect(contactIP, 12000);
+                    await client.ConnectAsync(contactIP, 12000);
                     using (var stream = client.GetStream())
                     {
                         var bytes = Encoding.UTF8.GetBytes(message);
-                        stream.Write(bytes, 0, bytes.Length);
+                        await stream.WriteAsync(bytes, 0, bytes.Length);
                     }
+                    return true;
                 }
                 catch (Exception ex)
                 {
                     MessageBox.Show($"Ошибка отправки сообщения: {ex.Message}");
+                    return false;
                 }
             }
+        }
+
+        private async void TrySendBufferedMessagesAsync()
+        {
+            var messages = bufferManager.GetBuffer();
+            foreach (var msg in messages.ToList())
+            {
+                bool success = await SendTcpMessageAsync(msg.ContactIP, msg.Message);
+                if (success)
+                {
+                    bufferManager.RemoveFromBuffer(msg);
+                }
+                else
+                {
+                    MessageBox.Show($"Не удалось отправить буферизованное сообщение для {msg.ContactIP}: {msg.Message}");
+                }
+            }
+        }
+
+        private void UpdateStatusAndIP()
+        {
+            lblStatus.Text = $"Статус: {myStatus}";
+            lblIP.Text = $"IP: {myIP}";
         }
 
         private void cmbStatus_SelectedIndexChanged(object sender, EventArgs e)
         {
             myStatus = cmbStatus.SelectedItem.ToString();
+            UpdateStatusAndIP();
+            SaveSettings();
+        }
+
+        private void lstContacts_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (lstContacts.SelectedItem != null)
+            {
+                UpdateHistoryDisplay(lstContacts.SelectedItem.ToString());
+            }
+        }
+
+        private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            SaveSettings();
+            bufferManager.SaveBuffer();
+        }
+
+        private void SaveSettings()
+        {
+            var settings = new Dictionary<string, string>
+            {
+                { "login", myLogin },
+                { "name", myName },
+                { "status", myStatus }
+            };
+            File.WriteAllText(SettingsFile, Newtonsoft.Json.JsonConvert.SerializeObject(settings));
+        }
+
+        private byte[] GenerateEncryptionKey()
+        {
+            var key = new byte[32]; // 256-bit key
+            using (var rng = new RNGCryptoServiceProvider())
+            {
+                rng.GetBytes(key);
+            }
+            return key;
         }
 
         private void notifyIcon_DoubleClick(object sender, EventArgs e)
@@ -419,13 +509,12 @@ namespace LocalMessenger
                 notifyIcon.Visible = true;
                 notifyIcon.Text = "LocalMessenger";
                 notifyIcon.BalloonTipText = "LocalMessenger";
-                notifyIcon.BalloonTipTitle = "Название";
+                notifyIcon.BalloonTipTitle = "LocalMessenger";
                 notifyIcon.ShowBalloonTip(500);
-
             }
         }
 
-        private void btnCreateGroup_Click(object sender, EventArgs e)
+        private async void btnCreateGroup_Click(object sender, EventArgs e)
         {
             using (var form = new GroupCreationForm())
             {
@@ -440,15 +529,25 @@ namespace LocalMessenger
                     {
                         if (!sharedKeys.ContainsKey(member))
                         {
-                            _ = ExchangeKeysWithContact(member);
+                            var sharedKey = await ExchangeKeysWithContactAsync(member);
+                            if (sharedKey == null)
+                            {
+                                MessageBox.Show($"Не удалось установить соединение с {member}");
+                                continue;
+                            }
                         }
 
-                        var sharedKey = sharedKeys[member];
+                        var memberSharedKey = sharedKeys[member];
                         var nonce = GenerateNonce();
                         var groupKeyString = Convert.ToBase64String(groupKey);
-                        var encryptedGroupKey = Encrypt(groupKeyString, sharedKey, nonce);
+                        var encryptedGroupKey = Encrypt(groupKeyString, memberSharedKey, nonce);
                         var message = $"GROUP_KEY|{groupID}|{Convert.ToBase64String(encryptedGroupKey)}|{Convert.ToBase64String(nonce)}|{Convert.ToBase64String(new byte[16])}|{myLogin}";
-                        SendTcpMessage(member, message);
+                        bool sent = await SendTcpMessageAsync(member, message);
+                        if (!sent)
+                        {
+                            bufferManager.AddToBuffer(member, message);
+                            MessageBox.Show($"Ключ группы для {member} добавлен в буфер из-за ошибки отправки.");
+                        }
                     }
                 }
             }
@@ -456,14 +555,12 @@ namespace LocalMessenger
 
         private byte[] GenerateGroupKey()
         {
-            var key = new byte[32]; // 256-bit group key
+            var key = new byte[32];
             using (var rng = new RNGCryptoServiceProvider())
             {
                 rng.GetBytes(key);
             }
             return key;
         }
-
-
     }
 }

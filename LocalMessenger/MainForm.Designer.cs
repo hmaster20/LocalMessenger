@@ -11,6 +11,9 @@ namespace LocalMessenger
         private System.Windows.Forms.NotifyIcon notifyIcon;
         private System.Windows.Forms.Button btnCreateGroup;
         private System.Windows.Forms.Button btnSend;
+        private System.Windows.Forms.Label lblStatus;
+        private System.Windows.Forms.Label lblIP;
+        private System.Windows.Forms.RichTextBox rtbHistory;
 
         protected override void Dispose(bool disposing)
         {
@@ -23,7 +26,6 @@ namespace LocalMessenger
 
         private void InitializeComponent()
         {
-            // Инициализация элементов интерфейса
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
             this.lstContacts = new System.Windows.Forms.ListBox();
@@ -32,6 +34,9 @@ namespace LocalMessenger
             this.notifyIcon = new System.Windows.Forms.NotifyIcon(this.components);
             this.btnCreateGroup = new System.Windows.Forms.Button();
             this.btnSend = new System.Windows.Forms.Button();
+            this.lblStatus = new System.Windows.Forms.Label();
+            this.lblIP = new System.Windows.Forms.Label();
+            this.rtbHistory = new System.Windows.Forms.RichTextBox();
             this.SuspendLayout();
             // 
             // lstContacts
@@ -42,6 +47,7 @@ namespace LocalMessenger
             this.lstContacts.Name = "lstContacts";
             this.lstContacts.Size = new System.Drawing.Size(150, 212);
             this.lstContacts.TabIndex = 0;
+            this.lstContacts.SelectedIndexChanged += new System.EventHandler(this.lstContacts_SelectedIndexChanged);
             // 
             // txtMessage
             // 
@@ -64,7 +70,6 @@ namespace LocalMessenger
             // 
             // notifyIcon
             // 
-            //this.notifyIcon.Icon = ((System.Drawing.Icon)(resources.GetObject("notifyIcon.Icon")));
             this.notifyIcon.Icon = new System.Drawing.Icon(SystemIcons.Application, 40, 40);
             this.notifyIcon.Text = "LocalMessenger";
             this.notifyIcon.Visible = false;
@@ -88,6 +93,30 @@ namespace LocalMessenger
             this.btnSend.Text = "Отправить";
             this.btnSend.Click += new System.EventHandler(this.btnSend_Click);
             // 
+            // lblStatus
+            // 
+            this.lblStatus.Location = new System.Drawing.Point(168, 12);
+            this.lblStatus.Name = "lblStatus";
+            this.lblStatus.Size = new System.Drawing.Size(200, 20);
+            this.lblStatus.TabIndex = 5;
+            this.lblStatus.Text = "Статус: Онлайн";
+            // 
+            // lblIP
+            // 
+            this.lblIP.Location = new System.Drawing.Point(168, 32);
+            this.lblIP.Name = "lblIP";
+            this.lblIP.Size = new System.Drawing.Size(200, 20);
+            this.lblIP.TabIndex = 6;
+            this.lblIP.Text = "IP: 0.0.0.0";
+            // 
+            // rtbHistory
+            // 
+            this.rtbHistory.Location = new System.Drawing.Point(168, 52);
+            this.rtbHistory.Name = "rtbHistory";
+            this.rtbHistory.Size = new System.Drawing.Size(306, 138);
+            this.rtbHistory.TabIndex = 7;
+            this.rtbHistory.ReadOnly = true;
+            // 
             // MainForm
             // 
             this.ClientSize = new System.Drawing.Size(539, 255);
@@ -96,10 +125,12 @@ namespace LocalMessenger
             this.Controls.Add(this.cmbStatus);
             this.Controls.Add(this.btnCreateGroup);
             this.Controls.Add(this.btnSend);
+            this.Controls.Add(this.lblStatus);
+            this.Controls.Add(this.lblIP);
+            this.Controls.Add(this.rtbHistory);
             this.Name = "MainForm";
-            this.ResumeLayout(false);
-            this.PerformLayout();
             this.Text = "LocalMessenger";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
             this.ResumeLayout(false);
             this.PerformLayout();
             this.Resize += new System.EventHandler(this.MainForm_Resize);
