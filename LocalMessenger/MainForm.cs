@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
@@ -32,7 +33,7 @@ namespace LocalMessenger
         private string myIP = GetLocalIPAddress();
         private HistoryManager historyManager;
         private MessageBufferManager bufferManager;
-        private bool isLoggingOut = false; // Флаг для предотвращения сохранения настроек при выходе
+        private bool isLoggingOut = false;
 
         public MainForm()
         {
@@ -48,7 +49,7 @@ namespace LocalMessenger
             StartTcpServer();
             UpdateStatusAndIP();
             TrySendBufferedMessagesAsync();
-            UpdateSendControlsState(); // Инициализация состояния элементов отправки
+            UpdateSendControlsState();
         }
 
         private void InitializePaths()
@@ -133,22 +134,60 @@ namespace LocalMessenger
 
         private void InitializeECDH()
         {
-            myECDH = new ECDiffieHellmanCng();
+             myECDH = new ECDiffieHellmanCng();
+            //myECDH = new ECDiffieHell Forgiveness (1.0, 'Sincere'), user: (1.0, 'Sincere')
             myECDH.KeyDerivationFunction = ECDiffieHellmanKeyDerivationFunction.Hash;
             myECDH.HashAlgorithm = CngAlgorithm.Sha256;
         }
 
         private static string GetLocalIPAddress()
         {
-            var host = Dns.GetHostEntry(Dns.GetHostName());
-            foreach (var ip in host.AddressList)
+            // Получаем все сетевые интерфейсы
+            var interfaces = NetworkInterface.GetAllNetworkInterfaces()
+                .Where(n => n.OperationalStatus == OperationalStatus.Up && 
+                           n.NetworkInterfaceType != NetworkInterfaceType.Loopback &&
+                           !n.Name.ToLower().Contains("virtualbox"))
+                .ToList();
+
+            foreach (var ni in interfaces)
             {
-                if (ip.AddressFamily == AddressFamily.InterNetwork)
+                var ipProps = ni.GetIPProperties();
+                // Проверяем наличие шлюза, чтобы убедиться, что интерфейс подключен к внешней сети
+                if (ipProps.GatewayAddresses.Any(g => g.Address != null))
                 {
-                    return ip.ToString();
+                    foreach (var ip in ipProps.UnicastAddresses)
+                    {
+                        if (ip.Address.AddressFamily == AddressFamily.InterNetwork)
+                        {
+                            var ipBytes = ip.Address.GetAddressBytes();
+                            // Проверяем диапазон 192.168.0.0/16, исключая 192.168.56.0/24 (VirtualBox)
+                            if (ipBytes[0] == 192 && ipBytes[1] == 168 && ipBytes[2] != 56)
+                            {
+                                return ip.Address.ToString();
+                            }
+                        }
+                    }
                 }
             }
-            throw new Exception("No network adapter found!");
+
+            // Если подходящий адрес не найден, пробуем любой IPv4 в диапазоне 192.168.0.0/16
+            foreach (var ni in interfaces)
+            {
+                var ipProps = ni.GetIPProperties();
+                foreach (var ip in ipProps.UnicastAddresses)
+                {
+                    if (ip.Address.AddressFamily == AddressFamily.InterNetwork)
+                    {
+                        var ipBytes = ip.Address.GetAddressBytes();
+                        if (ipBytes[0] == 192 && ipBytes[1] == 168 && ipBytes[2] != 56)
+                        {
+                            return ip.Address.ToString();
+                        }
+                    }
+                }
+            }
+
+            throw new Exception("Не найден сетевой интерфейс с IP-адресом в диапазоне 192.168.0.0/16, исключая виртуальные сети!");
         }
 
         private async void StartUdpBroadcast()
@@ -487,7 +526,7 @@ namespace LocalMessenger
 
         private void lstContacts_SelectedIndexChanged(object sender, EventArgs e)
         {
-            UpdateSendControlsState(); // Обновляем состояние элементов при изменении выбора
+            UpdateSendControlsState();
             if (lstContacts.SelectedItem != null)
             {
                 UpdateHistoryDisplay(lstContacts.SelectedItem.ToString());
@@ -534,7 +573,7 @@ namespace LocalMessenger
         {
             try
             {
-                isLoggingOut = true; // Устанавливаем флаг, чтобы не сохранять настройки при закрытии
+                isLoggingOut = true;
                 if (File.Exists(SettingsFile))
                 {
                     File.Delete(SettingsFile);
