@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using Newtonsoft.Json;
@@ -45,9 +44,10 @@ namespace LocalMessenger
                 var decryptedJson = Decrypt(encryptedData, encryptionKey);
                 return JsonConvert.DeserializeObject<List<Message>>(decryptedJson) ?? new List<Message>();
             }
-            catch
+            catch (Exception ex)
             {
-                return new List<Message>(); // Ошибка при чтении или расшифровке
+                Logger.Log($"Error loading history for {contact}: {ex.Message}");
+                return new List<Message>();
             }
         }
 
@@ -72,7 +72,6 @@ namespace LocalMessenger
                 aes.Mode = CipherMode.CBC;
                 aes.Padding = PaddingMode.PKCS7;
                 
-                // Генерируем случайный IV
                 aes.GenerateIV();
                 var iv = aes.IV;
 
@@ -82,7 +81,6 @@ namespace LocalMessenger
                 {
                     var cipherText = encryptor.TransformFinalBlock(plainBytes, 0, plainBytes.Length);
                     
-                    // Объединяем IV и зашифрованные данные
                     var result = new byte[iv.Length + cipherText.Length];
                     Buffer.BlockCopy(iv, 0, result, 0, iv.Length);
                     Buffer.BlockCopy(cipherText, 0, result, iv.Length, cipherText.Length);
@@ -103,8 +101,7 @@ namespace LocalMessenger
                 aes.Mode = CipherMode.CBC;
                 aes.Padding = PaddingMode.PKCS7;
                 
-                // Извлекаем IV из начала данных
-                var iv = new byte[16]; // AES IV всегда 16 байт
+                var iv = new byte[16];
                 var cipherText = new byte[cipherData.Length - iv.Length];
                 
                 Buffer.BlockCopy(cipherData, 0, iv, 0, iv.Length);
@@ -121,21 +118,11 @@ namespace LocalMessenger
         }
     }
 
-    /// <summary>
-    /// Структура сообщения
-    /// </summary>
     public class Message
     {
         public string Sender { get; set; }
         public string Content { get; set; }
-        //public MessageType Type { get; set; }
-        public DateTime Timestamp { get; } = DateTime.Now;
+        public MessageType Type { get; set; }
+        public DateTime Timestamp { get; set; } = DateTime.Now;
     }
-
-    //public enum MessageType
-    //{
-    //    Text,
-    //    File,
-    //    Image
-    //}
 }

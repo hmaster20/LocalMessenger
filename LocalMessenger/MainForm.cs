@@ -21,8 +21,8 @@ namespace LocalMessenger
         private string HistoryPath;
         private string SettingsFile;
 
-        private UdpClient udpListener; // Для приема сообщений
-        private UdpClient udpSender; // Для отправки сообщений
+        private UdpClient udpListener;
+        private UdpClient udpSender;
         private TcpListener tcpListener;
         private ECDiffieHellmanCng myECDH;
         private Dictionary<string, byte[]> contactPublicKeys = new Dictionary<string, byte[]>();
@@ -36,14 +36,17 @@ namespace LocalMessenger
         private string myIP = GetLocalIPAddress();
         private HistoryManager historyManager;
         private MessageBufferManager bufferManager;
-        private byte[] encryptionKey; // Ключ для шифрования истории
-        private Timer blinkTimer; // Таймер для мерцания
-        private HashSet<string> blinkingContacts = new HashSet<string>(); // Контакты с новыми сообщениями
+        private byte[] encryptionKey;
+        private Timer blinkTimer;
+        private HashSet<string> blinkingContacts = new HashSet<string>();
+        private ImageList statusIcons;
 
         public MainForm()
         {
             InitializeComponent();
             InitializeBlinkTimer();
+            InitializeStatusIcons();
+            InitializeEmojiMenu();
             Logger.Log($"Application started. Session initialized for IP: {myIP}");
             InitializePaths();
             InitializeDirectories();
@@ -61,42 +64,95 @@ namespace LocalMessenger
             TrySendBufferedMessagesAsync();
             UpdateSendControlsState();
             LoadAllHistories();
-            ConfigureMessageBox();
+            ConfigureControls();
         }
 
         private void InitializeBlinkTimer()
         {
-            blinkTimer = new Timer { Interval = 1000 }; // Мерцание раз в секунду
+            blinkTimer = new Timer { Interval = 1000 };
             blinkTimer.Tick += BlinkTimer_Tick;
             blinkTimer.Start();
         }
 
-        private void BlinkTimer_Tick(object sender, EventArgs e)
+        private void InitializeStatusIcons()
         {
-            foreach (var contact in blinkingContacts.ToList())
-            {
-                int index = lstContacts.Items.IndexOf(lstContacts.Items.Cast<string>().FirstOrDefault(i => i.StartsWith(contact)));
-                if (index >= 0)
-                {
-                    lstContacts.SetSelected(index, lstContacts.SelectedIndex == index); // Сохраняем выбор
-                    lstContacts.Items[index] = lstContacts.Items[index]; // Освежаем элемент
-                    lstContacts.Invalidate(); // Перерисовываем
-                }
-            }
+            statusIcons = new ImageList { ImageSize = new Size(16, 16) };
+            statusIcons.Images.Add("Online", CreateCircle(Color.Green));
+            statusIcons.Images.Add("Offline", CreateCircle(Color.Gray));
+            lstContacts.SmallImageList = statusIcons;
         }
 
-        private void ConfigureMessageBox()
+        private Bitmap CreateCircle(Color color)
+        {
+            var bitmap = new Bitmap(16, 16);
+            using (var g = Graphics.FromImage(bitmap))
+            {
+                g.Clear(Color.Transparent);
+                using (var brush = new SolidBrush(color))
+                {
+                    g.FillEllipse(brush, 0, 0, 15, 15);
+                }
+            }
+            return bitmap;
+        }
+
+        private void InitializeEmojiMenu()
+        {
+            var emojiMenu = new ContextMenuStrip();
+            var emojis = new[] { "😊", "😂", "👍", "😢", "😍" };
+            foreach (var emoji in emojis)
+            {
+                emojiMenu.Items.Add(emoji, null, (s, e) => txtMessage.AppendText(emoji));
+            }
+            txtMessage.ContextMenuStrip = emojiMenu;
+        }
+
+        private void ConfigureControls()
         {
             txtMessage.KeyDown += txtMessage_KeyDown;
             rtbHistory.WordWrap = true;
             rtbHistory.ScrollBars = RichTextBoxScrollBars.Vertical;
+            rtbHistory.Font = new Font("Segoe UI Emoji", 10);
+            txtMessage.Font = new Font("Segoe UI Emoji", 10);
+            lstContacts.DrawMode = DrawMode.OwnerDrawFixed;
+            lstContacts.DrawItem += lstContacts_DrawItem;
+            rtbHistory.LinkClicked += rtbHistory_LinkClicked;
+        }
+
+        private void lstContacts_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            if (e.Index < 0) return;
+            var text = lstContacts.Items[e.Index].ToString();
+            var login = text.Split(' ')[0];
+            var status = text.Contains("Online") ? "Online" : "Offline";
+            var isBlinking = blinkingContacts.Contains(login) && (DateTime.Now.Second % 2 == 0);
+            e.DrawBackground();
+            using (var brush = new SolidBrush(isBlinking ? Color.Yellow : e.ForeColor))
+            {
+                e.Graphics.DrawImage(statusIcons.Images[status], e.Bounds.Left, e.Bounds.Top);
+                e.Graphics.DrawString(text, e.Font, brush, e.Bounds.Left + 20, e.Bounds.Top);
+            }
+            e.DrawFocusRectangle();
+        }
+
+        private void rtbHistory_LinkClicked(object sender, LinkClickedEventArgs e)
+        {
+            try
+            {
+                Process.Start("explorer.exe", e.LinkText);
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Error opening file: {ex.Message}");
+                MessageBox.Show($"Error opening file: {ex.Message}");
+            }
         }
 
         private void txtMessage_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Enter && !string.IsNullOrWhiteSpace(txtMessage.Text))
             {
-                e.SuppressKeyPress = true; // Предотвращаем перенос строки
+                e.SuppressKeyPress = true;
                 btnSend_Click(sender, e);
             }
         }
@@ -176,7 +232,7 @@ namespace LocalMessenger
                     Logger.Log($"User registered: Login={myLogin}, Name={myName}");
                 }
                 else
-                {
+                    {
                     Logger.Log("Registration cancelled. Exiting application.");
                     Application.Exit();
                 }
@@ -458,12 +514,36 @@ namespace LocalMessenger
                         var tag = Convert.FromBase64String(parts[4]);
 
                         var decrypted = Decrypt(encryptedMessage, sharedKeys[sender], nonce, tag);
-                        UpdateHistory(sender, decrypted, isReceived: true);
+                        UpdateHistory(sender, decrypted, MessageType.Text, isReceived: true);
                         if (lstContacts.SelectedItem?.ToString().StartsWith(sender) != true)
                         {
                             blinkingContacts.Add(sender);
                         }
                         Logger.Log($"Received MESSAGE from {sender}: {decrypted}");
+                    }
+                    else if (parts[0] == "FILE")
+                    {
+                        var sender = parts[1];
+                        var fileName = parts[2];
+                        var fileSize = long.Parse(parts[3]);
+                        var filePath = Path.Combine(AttachmentsPath, $"{Guid.NewGuid()}_{fileName}");
+                        using (var fs = File.Create(filePath))
+                        {
+                            var totalRead = 0L;
+                            while (totalRead < fileSize)
+                            {
+                                var toRead = (int)Math.Min(buffer.Length, fileSize - totalRead);
+                                bytesRead = await stream.ReadAsync(buffer, 0, toRead);
+                                await fs.WriteAsync(buffer, 0, bytesRead);
+                                totalRead += bytesRead;
+                            }
+                        }
+                        UpdateHistory(sender, filePath, MessageType.File, isReceived: true);
+                        if (lstContacts.SelectedItem?.ToString().StartsWith(sender) != true)
+                        {
+                            blinkingContacts.Add(sender);
+                        }
+                        Logger.Log($"Received FILE from {sender}: {fileName} saved to {filePath}");
                     }
                     else if (parts[0] == "GROUP_MESSAGE")
                     {
@@ -543,12 +623,13 @@ namespace LocalMessenger
             return nonce;
         }
 
-        private void UpdateHistory(string contact, string message, bool isReceived)
+        private void UpdateHistory(string contact, string content, MessageType type, bool isReceived)
         {
             var msg = new Message
             {
                 Sender = isReceived ? contact : myLogin,
-                Content = message,
+                Content = content,
+                Type = type,
                 Timestamp = DateTime.Now
             };
             historyManager.AddMessage(contact, msg);
@@ -557,7 +638,7 @@ namespace LocalMessenger
             {
                 UpdateHistoryDisplay(contact);
             }
-            Logger.Log($"Updated history for {contact}: {(isReceived ? "Received" : "Sent")} - {message}");
+            Logger.Log($"Updated history for {contact}: {(isReceived ? "Received" : "Sent")} - {content} ({type})");
         }
 
         private void UpdateGroupHistory(string groupID, string message, bool isReceived)
@@ -571,8 +652,17 @@ namespace LocalMessenger
             var messages = historyManager.LoadMessages(contact);
             foreach (var msg in messages)
             {
-                var line = $"[{msg.Timestamp:dd.MM.yyyy HH:mm:ss}] {msg.Sender}: {msg.Content}";
-                rtbHistory.AppendText(line + Environment.NewLine);
+                var prefix = $"[{msg.Timestamp:dd.MM.yyyy HH:mm:ss}] {msg.Sender}: ";
+                if (msg.Type == MessageType.Text)
+                {
+                    rtbHistory.AppendText(prefix + msg.Content + Environment.NewLine);
+                }
+                else if (msg.Type == MessageType.File)
+                {
+                    rtbHistory.AppendText(prefix);
+                    rtbHistory.InsertLink(Path.GetFileName(msg.Content), msg.Content);
+                    rtbHistory.AppendText(Environment.NewLine);
+                }
             }
             rtbHistory.ScrollToCaret();
             Logger.Log($"Displayed history for {contact}");
@@ -582,7 +672,7 @@ namespace LocalMessenger
         {
             foreach (var contact in contactIPs.Keys)
             {
-                historyManager.LoadMessages(contact); // Предзагрузка для кэширования
+                historyManager.LoadMessages(contact);
             }
             Logger.Log("All histories loaded");
         }
@@ -591,7 +681,7 @@ namespace LocalMessenger
         {
             var selectedContact = lstContacts.SelectedItem?.ToString();
             if (selectedContact == null) return;
-            var contactLogin = selectedContact.Split(' ')[0]; // Извлекаем логин
+            var contactLogin = selectedContact.Split(' ')[0];
             if (contactLogin == myLogin)
             {
                 Logger.Log("Attempted to send message to self. Ignored.");
@@ -626,15 +716,78 @@ namespace LocalMessenger
 
                 if (sent)
                 {
-                    UpdateHistory(contactLogin, txtMessage.Text, isReceived: false);
+                    UpdateHistory(contactLogin, txtMessage.Text, MessageType.Text, isReceived: false);
                     txtMessage.Clear();
                     Logger.Log($"Message sent to {contactLogin} (IP: {contactIP}): {txtMessage.Text}");
                 }
                 else
                 {
                     bufferManager.AddToBuffer(contactIP, message);
-                    UpdateHistory(contactLogin, $"[SYSTEM] Message to {contactLogin} buffered due to send failure.", isReceived: false);
+                    UpdateHistory(contactLogin, $"[SYSTEM] Message to {contactLogin} buffered due to send failure.", MessageType.Text, isReceived: false);
                     Logger.Log($"Message for {contactLogin} (IP: {contactIP}) added to buffer: {txtMessage.Text}");
+                }
+            }
+        }
+
+        private async void btnSendFile_Click(object sender, EventArgs e)
+        {
+            var selectedContact = lstContacts.SelectedItem?.ToString();
+            if (selectedContact == null) return;
+            var contactLogin = selectedContact.Split(' ')[0];
+            if (contactLogin == myLogin)
+            {
+                Logger.Log("Attempted to send file to self. Ignored.");
+                MessageBox.Show("Cannot send file to yourself.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            using (var openFileDialog = new OpenFileDialog())
+            {
+                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    var filePath = openFileDialog.FileName;
+                    var fileName = Path.GetFileName(filePath);
+                    var fileSize = new FileInfo(filePath).Length;
+                    if (fileSize > 100 * 1024 * 1024) // 100 MB limit
+                    {
+                        MessageBox.Show("File size exceeds 100 MB limit.", "Error");
+                        return;
+                    }
+
+                    var cachedFilePath = Path.Combine(AttachmentsPath, $"{Guid.NewGuid()}_{fileName}");
+                    File.Copy(filePath, cachedFilePath);
+
+                    byte[] sharedKey = null;
+                    string contactIP = contactIPs.ContainsKey(contactLogin) ? contactIPs[contactLogin] : contactLogin;
+                    if (!sharedKeys.ContainsKey(contactLogin))
+                    {
+                        sharedKey = await ExchangeKeysWithContactAsync(contactIP);
+                        if (sharedKey == null)
+                        {
+                            Logger.Log($"Failed to establish connection with {contactLogin} (IP: {contactIP})");
+                            MessageBox.Show($"Failed to establish connection with {contactLogin}");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        sharedKey = sharedKeys[contactLogin];
+                    }
+
+                    var message = $"FILE|{myLogin}|{fileName}|{fileSize}";
+                    bool sent = await SendFileAsync(contactIP, message, cachedFilePath);
+
+                    if (sent)
+                    {
+                        UpdateHistory(contactLogin, cachedFilePath, MessageType.File, isReceived: false);
+                        Logger.Log($"File sent to {contactLogin} (IP: {contactIP}): {fileName}");
+                    }
+                    else
+                    {
+                        bufferManager.AddToBuffer(contactIP, message);
+                        UpdateHistory(contactLogin, $"[SYSTEM] File to {contactLogin} buffered due to send failure.", MessageType.Text, isReceived: false);
+                        Logger.Log($"File for {contactLogin} (IP: {contactIP}) added to buffer: {fileName}");
+                    }
                 }
             }
         }
@@ -707,13 +860,49 @@ namespace LocalMessenger
             }
         }
 
+        private async Task<bool> SendFileAsync(string contactIP, string message, string filePath)
+        {
+            using (var client = new TcpClient())
+            {
+                try
+                {
+                    await client.ConnectAsync(contactIP, 12000);
+                    using (var stream = client.GetStream())
+                    {
+                        var messageBytes = Encoding.UTF8.GetBytes(message);
+                        await stream.WriteAsync(messageBytes, 0, messageBytes.Length);
+                        await stream.FlushAsync();
+
+                        using (var fs = File.OpenRead(filePath))
+                        {
+                            var buffer = new byte[4096];
+                            int bytesRead;
+                            while ((bytesRead = await fs.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                            {
+                                await stream.WriteAsync(buffer, 0, bytesRead);
+                            }
+                        }
+                    }
+                    Logger.Log($"File sent successfully to {contactIP}: {filePath}");
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log($"File send error to {contactIP}: {ex.Message}");
+                    return false;
+                }
+            }
+        }
+
         private async void TrySendBufferedMessagesAsync()
         {
             var messages = bufferManager.GetBuffer();
             Logger.Log($"Attempting to send {messages.Count} buffered messages");
             foreach (var msg in messages.ToList())
             {
-                bool success = await SendTcpMessageAsync(msg.ContactIP, msg.Message);
+                bool success = msg.Message.StartsWith("FILE") ?
+                    await SendFileAsync(msg.ContactIP, msg.Message, msg.Message.Split('|')[2]) :
+                    await SendTcpMessageAsync(msg.ContactIP, msg.Message);
                 if (success)
                 {
                     bufferManager.RemoveFromBuffer(msg);
@@ -722,7 +911,7 @@ namespace LocalMessenger
                 else
                 {
                     var contact = contactIPs.FirstOrDefault(x => x.Value == msg.ContactIP).Key ?? msg.ContactIP;
-                    UpdateHistory(contact, $"[SYSTEM] Failed to send buffered message to {contact}.", isReceived: false);
+                    UpdateHistory(contact, $"[SYSTEM] Failed to send buffered message to {contact}.", MessageType.Text, isReceived: false);
                     Logger.Log($"Failed to send buffered message to {msg.ContactIP}: {msg.Message}");
                 }
             }
@@ -741,6 +930,7 @@ namespace LocalMessenger
             bool isContactSelected = lstContacts.SelectedItem != null;
             bool isSelfSelected = lstContacts.SelectedItem?.ToString().StartsWith(myLogin) == true;
             btnSend.Enabled = isContactSelected && !isSelfSelected;
+            btnSendFile.Enabled = isContactSelected && !isSelfSelected;
             txtMessage.Enabled = isContactSelected && !isSelfSelected;
             Logger.Log($"Send controls state updated: Enabled={isContactSelected && !isSelfSelected}, Selected={lstContacts.SelectedItem?.ToString() ?? "None"}");
         }

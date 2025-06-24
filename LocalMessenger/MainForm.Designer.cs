@@ -5,12 +5,13 @@ namespace LocalMessenger
     partial class MainForm
     {
         private System.ComponentModel.IContainer components = null;
-        private System.Windows.Forms.ListBox lstContacts;
+        private System.Windows.Forms.ListView lstContacts;
         private System.Windows.Forms.TextBox txtMessage;
         private System.Windows.Forms.ComboBox cmbStatus;
         private System.Windows.Forms.NotifyIcon notifyIcon;
         private System.Windows.Forms.Button btnCreateGroup;
         private System.Windows.Forms.Button btnSend;
+        private System.Windows.Forms.Button btnSendFile;
         private System.Windows.Forms.Button btnExit;
         private System.Windows.Forms.Button btnOpenSettingsFolder;
         private System.Windows.Forms.Button btnDeleteAccount;
@@ -32,12 +33,13 @@ namespace LocalMessenger
         {
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
-            this.lstContacts = new System.Windows.Forms.ListBox();
+            this.lstContacts = new System.Windows.Forms.ListView();
             this.txtMessage = new System.Windows.Forms.TextBox();
             this.cmbStatus = new System.Windows.Forms.ComboBox();
             this.notifyIcon = new System.Windows.Forms.NotifyIcon(this.components);
             this.btnCreateGroup = new System.Windows.Forms.Button();
             this.btnSend = new System.Windows.Forms.Button();
+            this.btnSendFile = new System.Windows.Forms.Button();
             this.btnExit = new System.Windows.Forms.Button();
             this.btnOpenSettingsFolder = new System.Windows.Forms.Button();
             this.btnDeleteAccount = new System.Windows.Forms.Button();
@@ -49,12 +51,11 @@ namespace LocalMessenger
             // 
             // lstContacts
             // 
-            this.lstContacts.FormattingEnabled = true;
-            this.lstContacts.ItemHeight = 16;
             this.lstContacts.Location = new System.Drawing.Point(12, 12);
             this.lstContacts.Name = "lstContacts";
             this.lstContacts.Size = new System.Drawing.Size(150, 260);
             this.lstContacts.TabIndex = 0;
+            this.lstContacts.View = System.Windows.Forms.View.List;
             this.lstContacts.SelectedIndexChanged += new System.EventHandler(this.lstContacts_SelectedIndexChanged);
             // 
             // txtMessage
@@ -102,12 +103,22 @@ namespace LocalMessenger
             this.btnSend.Text = "Send";
             this.btnSend.Click += new System.EventHandler(this.btnSend_Click);
             // 
+            // btnSendFile
+            // 
+            this.btnSendFile.Enabled = false;
+            this.btnSendFile.Location = new System.Drawing.Point(374, 222);
+            this.btnSendFile.Name = "btnSendFile";
+            this.btnSendFile.Size = new System.Drawing.Size(100, 23);
+            this.btnSendFile.TabIndex = 5;
+            this.btnSendFile.Text = "Send File";
+            this.btnSendFile.Click += new System.EventHandler(this.btnSendFile_Click);
+            // 
             // btnExit
             // 
-            this.btnExit.Location = new System.Drawing.Point(406, 222);
+            this.btnExit.Location = new System.Drawing.Point(406, 246);
             this.btnExit.Name = "btnExit";
             this.btnExit.Size = new System.Drawing.Size(68, 23);
-            this.btnExit.TabIndex = 5;
+            this.btnExit.TabIndex = 6;
             this.btnExit.Text = "Exit";
             this.btnExit.Click += new System.EventHandler(this.btnExit_Click);
             // 
@@ -124,7 +135,7 @@ namespace LocalMessenger
             // 
             this.btnDeleteAccount.Location = new System.Drawing.Point(295, 246);
             this.btnDeleteAccount.Name = "btnDeleteAccount";
-            this.btnDeleteAccount.Size = new System.Drawing.Size(179, 23);
+            this.btnDeleteAccount.Size = new System.Drawing.Size(100, 23);
             this.btnDeleteAccount.TabIndex = 11;
             this.btnDeleteAccount.Text = "Delete Account";
             this.btnDeleteAccount.Click += new System.EventHandler(this.btnDeleteAccount_Click);
@@ -134,7 +145,7 @@ namespace LocalMessenger
             this.lblStatus.Location = new System.Drawing.Point(168, 12);
             this.lblStatus.Name = "lblStatus";
             this.lblStatus.Size = new System.Drawing.Size(200, 20);
-            this.lblStatus.TabIndex = 6;
+            this.lblStatus.TabIndex = 7;
             this.lblStatus.Text = "Status: Online";
             // 
             // lblIP
@@ -142,7 +153,7 @@ namespace LocalMessenger
             this.lblIP.Location = new System.Drawing.Point(168, 32);
             this.lblIP.Name = "lblIP";
             this.lblIP.Size = new System.Drawing.Size(200, 20);
-            this.lblIP.TabIndex = 7;
+            this.lblIP.TabIndex = 8;
             this.lblIP.Text = "IP: 0.0.0.0";
             // 
             // lblUserInfo
@@ -150,7 +161,7 @@ namespace LocalMessenger
             this.lblUserInfo.Location = new System.Drawing.Point(168, 52);
             this.lblUserInfo.Name = "lblUserInfo";
             this.lblUserInfo.Size = new System.Drawing.Size(200, 20);
-            this.lblUserInfo.TabIndex = 8;
+            this.lblUserInfo.TabIndex = 9;
             this.lblUserInfo.Text = "User: ";
             // 
             // rtbHistory
@@ -159,7 +170,7 @@ namespace LocalMessenger
             this.rtbHistory.Name = "rtbHistory";
             this.rtbHistory.ReadOnly = true;
             this.rtbHistory.Size = new System.Drawing.Size(546, 118);
-            this.rtbHistory.TabIndex = 9;
+            this.rtbHistory.TabIndex = 10;
             this.rtbHistory.Text = "";
             // 
             // MainForm
@@ -170,6 +181,7 @@ namespace LocalMessenger
             this.Controls.Add(this.cmbStatus);
             this.Controls.Add(this.btnCreateGroup);
             this.Controls.Add(this.btnSend);
+            this.Controls.Add(this.btnSendFile);
             this.Controls.Add(this.btnExit);
             this.Controls.Add(this.btnOpenSettingsFolder);
             this.Controls.Add(this.btnDeleteAccount);
@@ -183,7 +195,6 @@ namespace LocalMessenger
             this.Resize += new System.EventHandler(this.MainForm_Resize);
             this.ResumeLayout(false);
             this.PerformLayout();
-
         }
     }
 }

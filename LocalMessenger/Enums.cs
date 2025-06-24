@@ -20,6 +20,7 @@ namespace LocalMessenger
     {
         Text,
         File,
+        Image,
         Emoji,
         GroupMessage,
         StatusUpdate,

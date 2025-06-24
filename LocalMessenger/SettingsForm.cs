@@ -45,7 +45,7 @@ namespace LocalMessenger
             var btnOpenLogs = new Button { Text = "Open Log File", Location = new Point(10, 290), Width = 100 };
             var btnSave = new Button { Text = "Save", Location = new Point(370, 290), Width = 100 };
 
-            chkLiveLogs.CheckedChanged += (s, e) => txtLogs.Enabled = chkLiveLogs.Checked;
+            chkLiveLogs.CheckedChanged += chkLiveLogs_CheckedChanged;
             btnOpenLogs.Click += btnOpenLogs_Click;
             btnSave.Click += btnSave_Click;
 
@@ -98,6 +98,11 @@ namespace LocalMessenger
                     timer.Start();
                 }
             }
+        }
+
+        private void chkLiveLogs_CheckedChanged(object sender, EventArgs e)
+        {
+            txtLogs.Enabled = ((CheckBox)sender).Checked;
         }
 
         private void btnOpenLogs_Click(object sender, EventArgs e)
