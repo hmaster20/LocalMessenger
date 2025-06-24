@@ -114,13 +114,13 @@ namespace LocalMessenger
 
         private void ConfigureControls()
         {
-            txtMessage.KeyDown += txtMessage;
+            txtMessage.KeyDown += txtMessage_KeyDown;
             rtbHistory.WordWrap = true;
             rtbHistory.ScrollBars = RichTextBoxScrollBars.Vertical;
             rtbHistory.Font = new Font("Segoe UI Emoji", 10);
             txtMessage.Font = new Font("Segoe UI Emoji", 10);
             lstContacts.OwnerDraw = true;
-            lstContacts.DrawItem += lstContacts;
+            lstContacts.DrawItem += lstContacts_DrawItem;
             rtbHistory.LinkClicked += rtbHistory_LinkClicked;
         }
 
@@ -500,17 +500,15 @@ namespace LocalMessenger
 
                         var sharedKey = myECDH.DeriveKeyMaterial(CngKey.Import(contactPublicKey, CngKeyBlobFormat.EccPublicBlob));
                         sharedKeys[sender] = sharedKey;
-                        Logger.Log($"Shared key established with {sender}");
+                        Logger.Log($"Shared key established with {myLogin}");
                     }
                     else if (parts[0] == "KEY_EXCHANGE_RESPONSE")
                     {
                         var sender = parts[1];
                         var contactPublicKey = Convert.FromBase64String(parts[2]);
-                        contactPublicKeys[sender] = contactPublicKey;
-
-                        var sharedKey = myECDH.DeriveKeyMaterial(CngKey.Import(contactPublicKey, CngKeyBlobFormat.EccPublicBlob));
+                        var sharedKey = myECDH.DeriveKeyMaterial(CngKey.Import(contactPublicKey));
                         sharedKeys[sender] = sharedKey;
-                        Logger.Log($"Shared key established with {sender}");
+                        Logger.Log($"Shared key for {sender} is set");
                     }
                     else if (parts[0] == "MESSAGE")
                     {
@@ -722,17 +720,18 @@ namespace LocalMessenger
                 byte[] sharedKey = null;
                 string contactIP = contactIPs.ContainsKey(contactLogin) ? contactIPs[contactLogin] : contactLogin;
                 if (!sharedKeys.ContainsKey(contactLogin))
-                {
-                    sharedKey = await ExchangeKeysWithContactAsync(contactIP);
-                    if (sharedKey == null)
                     {
-                        Logger.Log($"Failed to establish connection with {contactLogin} (IP: {contactIP})");
-                        MessageBox.Show($"Failed to establish connection with {contactLogin}");
-                        return;
+                        Logger.Log($"No shared key found for {contactLogin}, attempting key exchange.");
+                        sharedKey = await ExchangeKeysWithContactAsync(contactIP);
+                        if (sharedKey == null)
+                            {
+                            Logger.Log($"Failed to establish connection with {contactLogin} (IP: {contactIP})");
+                            MessageBox.Show($"Failed to establish connection with {contactLogin}");
+                            return;
+                            }
                     }
-                }
                 else
-                {
+                    {
                     sharedKey = sharedKeys[contactLogin];
                 }
 
@@ -790,6 +789,7 @@ namespace LocalMessenger
                     string contactIP = contactIPs.ContainsKey(contactLogin) ? contactIPs[contactLogin] : contactLogin;
                     if (!sharedKeys.ContainsKey(contactLogin))
                     {
+                        Logger.Log($"No shared key found for {contactLogin}, attempting key exchange.");
                         sharedKey = await ExchangeKeysWithContactAsync(contactIP);
                         if (sharedKey == null)
                         {
@@ -847,7 +847,7 @@ namespace LocalMessenger
                     var message = $"KEY_EXCHANGE|{myLogin}|{Convert.ToBase64String(publicKey)}";
                     var bytes = Encoding.UTF8.GetBytes(message);
                     await stream.WriteAsync(bytes, 0, bytes.Length);
-                    Logger.Log($"Sent KEY_EXCHANGE to {contactIP}");
+                    Logger.Log($"Sent {message} to {myLogin}");
 
                     var buffer = new byte[4096];
                     var bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
@@ -982,7 +982,7 @@ namespace LocalMessenger
                 }
                 catch (Exception ex)
                 {
-                    Logger.Log($"Large file send error to {contactIP}: {ex.Message}");
+                    Logger.Log($"Large file send error: {ex.Message}");
                     return false;
                 }
             }
@@ -1034,6 +1034,8 @@ namespace LocalMessenger
 
                 progressForm.Close();
             }
+
+            Logger.Log($"Large file received successfully: {filePath}");
         }
 
         private byte[] DecryptChunk(byte[] cipherText, byte[] key, byte[] nonce)
@@ -1049,7 +1051,7 @@ namespace LocalMessenger
                 using (var cs = new CryptoStream(ms, aes.CreateDecryptor(), CryptoStreamMode.Write))
                 {
                     cs.Write(cipherText, 0, cipherText.Length);
-                    cs.FlushFinalBlock();
+                    cs.Flush();
                     return ms.ToArray();
                 }
             }
@@ -1205,27 +1207,27 @@ namespace LocalMessenger
         {
             Logger.Log("Delete account initiated");
             var result = MessageBox.Show("Are you sure you want to delete your account? This will remove all user settings.", 
-                "Confirm Account Deletion", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-            if (result == DialogResult.Yes)
+                "Error", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
+            if (result == DialogResult.OK)
             {
                 try
                 {
                     if (File.Exists(SettingsFile))
                     {
                         File.Delete(SettingsFile);
-                        Logger.Log("Account settings deleted");
+                        Logger.Log("Account settings deleted successfully");
                     }
-                    Logger.Log("Account deletion confirmed. Closing application.");
-                    MessageBox.Show("Account deleted. The application will close.");
+                    Logger.Log("Account deletion confirmed");
+                    MessageBox.Show("Account deleted successfully");
                     Application.Exit();
                 }
                 catch (Exception ex)
                 {
                     Logger.Log($"Error deleting account: {ex.Message}");
-                    MessageBox.Show($"Error deleting account: {ex.Message}");
+                    MessageBox.Show("Error deleting account: {ex.Message}");
+                }
                 }
             }
-            else
             {
                 Logger.Log("Account deletion cancelled");
             }
@@ -1234,15 +1236,15 @@ namespace LocalMessenger
         private void btnViewLogs_Click(object sender, EventArgs e)
         {
             try
-            {
-                var logFile = Path.Combine(AppDataPath, "logs", "log.txt");
-                Process.Start("notepad.exe", logFile);
-                Logger.Log("Opened log file");
+                {
+                var logFile = Path.Combine(AppDataPath, "logs", new {log.txt}");
+                Process.Start("notepad.exe", new {logFile});
+                Logger.Log("Opened log file successfully");
             }
             catch (Exception ex)
             {
                 Logger.Log($"Error opening log file: {ex.Message}");
-                MessageBox.Show($"Error opening log file: {ex.Message}");
+                MessageBox.Show($"Failed to open log file: {ex.Message}");
             }
         }
 
@@ -1315,17 +1317,18 @@ namespace LocalMessenger
                     var members = form.SelectedMembers;
                     var groupKey = GenerateGroupKey();
                     groupKeys[groupID] = groupKey;
-                    Logger.Log($"Group created: ID={groupID}, Members={string.Join(",", members)}");
+                    Logger.Log($"Group {groupID} created successfully with members: {string.Join(",", members)}");
 
                     foreach (var member in members)
                     {
                         string contactIP = contactIPs.ContainsKey(member) ? contactIPs[member] : member;
                         if (!sharedKeys.ContainsKey(member))
                         {
+                            Logger.Log($"No shared key found for {member}, attempting key exchange.");
                             var sharedKey = await ExchangeKeysWithContactAsync(contactIP);
                             if (sharedKey == null)
                             {
-                                Logger.Log($"Failed to establish connection with {member}");
+                                Logger.Log($"Failed to establish connection with {member} (IP: {contactIP})");
                                 MessageBox.Show($"Failed to establish connection with {member}");
                                 continue;
                             }
@@ -1340,7 +1343,7 @@ namespace LocalMessenger
                         if (!sent)
                         {
                             bufferManager.AddToBuffer(contactIP, message);
-                            Logger.Log($"Group key for {member} added to buffer");
+                            Logger.Log($"Group key for {member} added to buffer due to send failure");
                             MessageBox.Show($"Group key for {member} added to buffer due to send failure.");
                         }
                     }

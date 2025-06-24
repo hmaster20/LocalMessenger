@@ -72,19 +72,20 @@ namespace LocalMessenger
             {
                 if (txtLogs.SelectionStart == 0 && e.Delta > 0 && logCache.Count >= visibleLines)
                 {
-                    await LoadMoreLogsAsync(_logFile, ref logCache, ref lastPosition, blockSize);
+                    await LoadMoreLogsAsync(_logFile, logCache, blockSize);
                     txtLogs.Text = string.Join(Environment.NewLine, logCache.Take(visibleLines));
                     txtLogs.SelectionStart = 0;
                 }
             };
 
             // Real-time monitoring
-            var timer = new Timer { Interval = 1000 };
+            var timer = new Timer { Interval = 2000 };
             timer.Tick += async (s, e) =>
             {
                 if (txtLogs.Enabled && File.Exists(_logFile))
                 {
-                    await UpdateLogsAsync(_logFile, ref logCache, ref lastPosition);
+                    await UpdateLogsAsync(_logFile, logCache, lastPosition);
+                    lastPosition = new FileInfo(_logFile).Length;
                     txtLogs.Text = string.Join(Environment.NewLine, logCache.Take(visibleLines));
                     txtLogs.SelectionStart = txtLogs.Text.Length;
                     txtLogs.ScrollToCaret();
@@ -106,7 +107,7 @@ namespace LocalMessenger
             }
         }
 
-        private async Task LoadMoreLogsAsync(string logFile, ref List<string> logCache, ref long lastPosition, int blockSize)
+        private async Task LoadMoreLogsAsync(string logFile, List<string> logCache, int blockSize)
         {
             using (var fs = new FileStream(logFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             using (var sr = new StreamReader(fs))
@@ -126,7 +127,6 @@ namespace LocalMessenger
                 }
 
                 logCache.InsertRange(0, newCache);
-                lastPosition = sr.BaseStream.Position;
 
                 // Trim cache to prevent memory overflow
                 if (logCache.Count > blockSize * 2)
@@ -136,7 +136,7 @@ namespace LocalMessenger
             }
         }
 
-        private async Task UpdateLogsAsync(string logFile, ref List<string> logCache, ref long lastPosition)
+        private async Task UpdateLogsAsync(string logFile, List<string> logCache, long lastPosition)
         {
             using (var fs = new FileStream(logFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             using (var sr = new StreamReader(fs))
@@ -147,7 +147,6 @@ namespace LocalMessenger
                     var line = await sr.ReadLineAsync();
                     if (line != null) logCache.Add(line);
                 }
-                lastPosition = sr.BaseStream.Position;
 
                 // Trim cache
                 if (logCache.Count > 450) // visibleLines + blockSize
