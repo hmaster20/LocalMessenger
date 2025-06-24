@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.NetworkInformation;
+using System.Diagnostics;
 using System.Windows.Forms;
 
 namespace LocalMessenger
@@ -27,43 +29,17 @@ namespace LocalMessenger
             StartLogMonitoring();
         }
 
-        private void InitializeComponent()
-        {
-            this.Size = new Size(500, 400);
-            this.Text = "Settings";
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-
-            var lblLogin = new Label { Text = "Login:", Location = new Point(10, 10), Width = 100 };
-            txtLogin = new TextBox { Location = new Point(110, 10), Width = 200 };
-            var lblName = new Label { Text = "Name:", Location = new Point(10, 40), Width = 100 };
-            txtName = new TextBox { Location = new Point(110, 40), Width = 200 };
-            var lblInterface = new Label { Text = "Network Interface:", Location = new Point(10, 70), Width = 100 };
-            cmbInterfaces = new ComboBox { Location = new Point(110, 70), Width = 200, DropDownStyle = ComboBoxStyle.DropDownList };
-            var chkLiveLogs = new CheckBox { Text = "Show Live Logs", Location = new Point(10, 100), Width = 100 };
-            txtLogs = new TextBox { Location = new Point(10, 130), Size = new Size(460, 150), Multiline = true, ScrollBars = ScrollBars.Vertical, ReadOnly = true };
-            var btnOpenLogs = new Button { Text = "Open Log File", Location = new Point(10, 290), Width = 100 };
-            var btnSave = new Button { Text = "Save", Location = new Point(370, 290), Width = 100 };
-
-            chkLiveLogs.CheckedChanged += chkLiveLogs_CheckedChanged;
-            btnOpenLogs.Click += btnOpenLogs_Click;
-            btnSave.Click += btnSave_Click;
-
-            this.Controls.AddRange(new Control[] { lblLogin, txtLogin, lblName, txtName, lblInterface, cmbInterfaces, chkLiveLogs, txtLogs, btnOpenLogs, btnSave });
-        }
-
-        private TextBox txtLogin;
-        private TextBox txtName;
-        private ComboBox cmbInterfaces;
-        private TextBox txtLogs;
-
         private void LoadInterfaces()
         {
             var interfaces = NetworkInterface.GetAllNetworkInterfaces()
                 .Where(n => n.OperationalStatus == OperationalStatus.Up && n.NetworkInterfaceType != NetworkInterfaceType.Loopback)
-                .Select(n => new { Name = n.Name, IPs = n.GetIPProperties().UnicastAddresses
-                    .Where(ip => ip.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-                    .Select(ip => ip.Address.ToString()).ToList() })
+                .Select(n => new
+                {
+                    Name = n.Name,
+                    IPs = n.GetIPProperties().UnicastAddresses
+                        .Where(ip => ip.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                        .Select(ip => ip.Address.ToString()).ToList()
+                })
                 .ToList();
             foreach (var ni in interfaces)
             {
@@ -75,30 +51,112 @@ namespace LocalMessenger
             if (cmbInterfaces.Items.Count > 0) cmbInterfaces.SelectedIndex = 0;
         }
 
-        private void StartLogMonitoring()
+private void StartLogMonitoring()
+{
+    if (!File.Exists(_logFile)) return;
+
+    const int visibleLines = 150; // Lines visible on screen + buffer
+    const int blockSize = 300; // Load 300 lines at a time
+    var logCache = new List<string>();
+    long lastPosition = 0;
+
+    // Initial load
+    LoadLogBlock(_logFile, ref logCache, ref lastPosition, visibleLines);
+
+    // Update UI
+    txtLogs.Text = string.Join(Environment.NewLine, logCache);
+
+    // Scroll event handler for loading more logs
+    txtLogs.MouseWheel += async (s, e) =>
+    {
+        if (txtLogs.SelectionStart <= 0 && e.Delta > 0 && logCache.Count >= visibleLines)
         {
-            if (File.Exists(_logFile))
+            await LoadMoreLogsAsync(_logFile, ref logCache, ref lastPosition, blockSize);
+            txtLogs.Text = string.Join(Environment.NewLine, logCache.Take(visibleLines));
+            txtLogs.SelectionStart = 0;
+        }
+    };
+
+    // Real-time monitoring
+    var timer = new Timer { Interval = 1000 };
+    timer.Tick += async (s, e) =>
+    {
+        if (txtLogs.Enabled && File.Exists(_logFile))
+        {
+            await UpdateLogsAsync(_logFile, ref logCache, ref lastPosition);
+            txtLogs.Text = string.Join(Environment.NewLine, logCache.Take(visibleLines));
+            txtLogs.SelectionStart = txtLogs.Text.Length;
+            txtLogs.ScrollToCaret();
+        }
+    };
+    timer.Start();
+}
+
+private void LoadLogBlock(string logFile, ref List<string> logCache, ref long lastPosition, int linesToLoad)
+{
+    using (var fs = new FileStream(logFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+    using (var sr = new StreamReader(fs))
+    {
+        sr.BaseStream.Seek(lastPosition, SeekOrigin.Begin);
+        for (int i = 0; i < linesToLoad && !sr.EndOfStream; i++)
+        {
+            var line = sr.ReadLine();
+            if (line != null) logCache.Add(line);
+        }
+        lastPosition = sr.BaseStream.Position;
+    }
+}
+
+private async Task LoadMoreLogsAsync(string logFile, ref List<string> logCache, ref long lastPosition, int blockSize)
+{
+    using (var fs = new FileStream(logFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+    using (var sr = new StreamReader(fs))
+    {
+        sr.BaseStream.Seek(0, SeekOrigin.Begin);
+        var newCache = new List<string>();
+        int linesRead = 0;
+
+        while (linesRead < blockSize && !sr.EndOfStream)
+        {
+            var line = await sr.ReadLineAsync();
+            if (line != null)
             {
-                using (var fs = new FileStream(_logFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                using (var sr = new StreamReader(fs))
-                {
-                    sr.BaseStream.Seek(0, SeekOrigin.End);
-                    var timer = new Timer { Interval = 1000 };
-                    timer.Tick += (s, e) =>
-                    {
-                        if (txtLogs.Enabled)
-                        {
-                            var newLog = sr.ReadToEnd();
-                            if (!string.IsNullOrEmpty(newLog))
-                            {
-                                this.Invoke((Action)(() => txtLogs.AppendText(newLog)));
-                            }
-                        }
-                    };
-                    timer.Start();
-                }
+                newCache.Add(line);
+                linesRead++;
             }
         }
+
+        logCache.InsertRange(0, newCache);
+        lastPosition = sr.BaseStream.Position;
+
+        // Trim cache to prevent memory overflow
+        if (logCache.Count > blockSize * 2)
+        {
+            logCache.RemoveRange(blockSize * 2, logCache.Count - blockSize * 2);
+        }
+    }
+}
+
+private async Task UpdateLogsAsync(string logFile, ref List<string> logCache, ref long lastPosition)
+{
+    using (var fs = new FileStream(logFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+    using (var sr = new StreamReader(fs))
+    {
+        sr.BaseStream.Seek(lastPosition, SeekOrigin.Begin);
+        while (!sr.EndOfStream)
+        {
+            var line = await sr.ReadLineAsync();
+            if (line != null) logCache.Add(line);
+        }
+        lastPosition = sr.BaseStream.Position;
+
+        // Trim cache
+        if (logCache.Count > 450) // visibleLines + blockSize
+        {
+            logCache.RemoveRange(0, logCache.Count - 450);
+        }
+    }
+}
 
         private void chkLiveLogs_CheckedChanged(object sender, EventArgs e)
         {
