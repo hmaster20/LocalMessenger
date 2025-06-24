@@ -36,16 +36,21 @@ namespace LocalMessenger
         private string myIP = GetLocalIPAddress();
         private HistoryManager historyManager;
         private MessageBufferManager bufferManager;
+        private byte[] encryptionKey; // Ключ для шифрования истории
+        private Timer blinkTimer; // Таймер для мерцания
+        private HashSet<string> blinkingContacts = new HashSet<string>(); // Контакты с новыми сообщениями
 
         public MainForm()
         {
             InitializeComponent();
+            InitializeBlinkTimer();
             Logger.Log($"Application started. Session initialized for IP: {myIP}");
             InitializePaths();
             InitializeDirectories();
+            encryptionKey = GenerateEncryptionKey();
             LoadSettings();
             InitializeNetwork();
-            historyManager = new HistoryManager(AppDataPath, GenerateEncryptionKey());
+            historyManager = new HistoryManager(AppDataPath, encryptionKey);
             bufferManager = new MessageBufferManager(AppDataPath);
             new TrayIconManager(this);
             AddCurrentUserToContacts();
@@ -55,6 +60,45 @@ namespace LocalMessenger
             UpdateStatusAndIP();
             TrySendBufferedMessagesAsync();
             UpdateSendControlsState();
+            LoadAllHistories();
+            ConfigureMessageBox();
+        }
+
+        private void InitializeBlinkTimer()
+        {
+            blinkTimer = new Timer { Interval = 1000 }; // Мерцание раз в секунду
+            blinkTimer.Tick += BlinkTimer_Tick;
+            blinkTimer.Start();
+        }
+
+        private void BlinkTimer_Tick(object sender, EventArgs e)
+        {
+            foreach (var contact in blinkingContacts.ToList())
+            {
+                int index = lstContacts.Items.IndexOf(lstContacts.Items.Cast<string>().FirstOrDefault(i => i.StartsWith(contact)));
+                if (index >= 0)
+                {
+                    lstContacts.SetSelected(index, lstContacts.SelectedIndex == index); // Сохраняем выбор
+                    lstContacts.Items[index] = lstContacts.Items[index]; // Освежаем элемент
+                    lstContacts.Invalidate(); // Перерисовываем
+                }
+            }
+        }
+
+        private void ConfigureMessageBox()
+        {
+            txtMessage.KeyDown += txtMessage_KeyDown;
+            rtbHistory.WordWrap = true;
+            rtbHistory.ScrollBars = RichTextBoxScrollBars.Vertical;
+        }
+
+        private void txtMessage_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter && !string.IsNullOrWhiteSpace(txtMessage.Text))
+            {
+                e.SuppressKeyPress = true; // Предотвращаем перенос строки
+                btnSend_Click(sender, e);
+            }
         }
 
         private void InitializePaths()
@@ -258,9 +302,9 @@ namespace LocalMessenger
 
         private void AddCurrentUserToContacts()
         {
-            if (!lstContacts.Items.Contains(myLogin))
+            if (!lstContacts.Items.Contains($"{myLogin} ({myName}, {myStatus})"))
             {
-                lstContacts.Items.Add(myLogin);
+                lstContacts.Items.Add($"{myLogin} ({myName}, {myStatus})");
                 Logger.Log($"Added current user to contacts: {myLogin}");
             }
         }
@@ -311,14 +355,17 @@ namespace LocalMessenger
                         {
                             contactPublicKeys[sender] = publicKey;
                             contactIPs[sender] = remoteIP;
-                            if (!lstContacts.Items.Contains(sender))
+                            var contactString = $"{sender} ({name}, {status})";
+                            int existingIndex = lstContacts.Items.IndexOf(lstContacts.Items.Cast<string>().FirstOrDefault(i => i.StartsWith(sender)));
+                            if (existingIndex >= 0)
                             {
-                                lstContacts.Items.Add(sender);
-                                Logger.Log($"Added contact: {sender} (Name: {name}, Status: {status}, IP: {remoteIP})");
+                                lstContacts.Items[existingIndex] = contactString;
+                                Logger.Log($"Updated contact: {sender} (Name: {name}, Status: {status}, IP: {remoteIP})");
                             }
                             else
                             {
-                                Logger.Log($"Contact already exists: {sender} (IP: {remoteIP})");
+                                lstContacts.Items.Add(contactString);
+                                Logger.Log($"Added contact: {sender} (Name: {name}, Status: {status}, IP: {remoteIP})");
                             }
                         }
                         else
@@ -412,6 +459,10 @@ namespace LocalMessenger
 
                         var decrypted = Decrypt(encryptedMessage, sharedKeys[sender], nonce, tag);
                         UpdateHistory(sender, decrypted, isReceived: true);
+                        if (lstContacts.SelectedItem?.ToString().StartsWith(sender) != true)
+                        {
+                            blinkingContacts.Add(sender);
+                        }
                         Logger.Log($"Received MESSAGE from {sender}: {decrypted}");
                     }
                     else if (parts[0] == "GROUP_MESSAGE")
@@ -497,11 +548,12 @@ namespace LocalMessenger
             var msg = new Message
             {
                 Sender = isReceived ? contact : myLogin,
-                Content = message
+                Content = message,
+                Timestamp = DateTime.Now
             };
             historyManager.AddMessage(contact, msg);
 
-            if (lstContacts.SelectedItem?.ToString() == contact)
+            if (lstContacts.SelectedItem?.ToString().StartsWith(contact) == true)
             {
                 UpdateHistoryDisplay(contact);
             }
@@ -519,38 +571,51 @@ namespace LocalMessenger
             var messages = historyManager.LoadMessages(contact);
             foreach (var msg in messages)
             {
-                rtbHistory.AppendText($"[{msg.Timestamp}] {msg.Sender}: {msg.Content}\n");
+                var line = $"[{msg.Timestamp:dd.MM.yyyy HH:mm:ss}] {msg.Sender}: {msg.Content}";
+                rtbHistory.AppendText(line + Environment.NewLine);
             }
+            rtbHistory.ScrollToCaret();
             Logger.Log($"Displayed history for {contact}");
+        }
+
+        private void LoadAllHistories()
+        {
+            foreach (var contact in contactIPs.Keys)
+            {
+                historyManager.LoadMessages(contact); // Предзагрузка для кэширования
+            }
+            Logger.Log("All histories loaded");
         }
 
         private async void btnSend_Click(object sender, EventArgs e)
         {
             var selectedContact = lstContacts.SelectedItem?.ToString();
-            if (selectedContact == myLogin)
+            if (selectedContact == null) return;
+            var contactLogin = selectedContact.Split(' ')[0]; // Извлекаем логин
+            if (contactLogin == myLogin)
             {
                 Logger.Log("Attempted to send message to self. Ignored.");
                 MessageBox.Show("Cannot send messages to yourself.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            if (selectedContact != null && txtMessage.Text.Length > 0)
+            if (!string.IsNullOrWhiteSpace(txtMessage.Text))
             {
                 byte[] sharedKey = null;
-                string contactIP = contactIPs.ContainsKey(selectedContact) ? contactIPs[selectedContact] : selectedContact;
-                if (!sharedKeys.ContainsKey(selectedContact))
+                string contactIP = contactIPs.ContainsKey(contactLogin) ? contactIPs[contactLogin] : contactLogin;
+                if (!sharedKeys.ContainsKey(contactLogin))
                 {
                     sharedKey = await ExchangeKeysWithContactAsync(contactIP);
                     if (sharedKey == null)
                     {
-                        Logger.Log($"Failed to establish connection with {selectedContact} (IP: {contactIP})");
-                        MessageBox.Show($"Failed to establish connection with {selectedContact}");
+                        Logger.Log($"Failed to establish connection with {contactLogin} (IP: {contactIP})");
+                        MessageBox.Show($"Failed to establish connection with {contactLogin}");
                         return;
                     }
                 }
                 else
                 {
-                    sharedKey = sharedKeys[selectedContact];
+                    sharedKey = sharedKeys[contactLogin];
                 }
 
                 var nonce = GenerateNonce();
@@ -561,15 +626,15 @@ namespace LocalMessenger
 
                 if (sent)
                 {
-                    UpdateHistory(selectedContact, txtMessage.Text, isReceived: false);
+                    UpdateHistory(contactLogin, txtMessage.Text, isReceived: false);
                     txtMessage.Clear();
-                    Logger.Log($"Message sent to {selectedContact} (IP: {contactIP}): {txtMessage.Text}");
+                    Logger.Log($"Message sent to {contactLogin} (IP: {contactIP}): {txtMessage.Text}");
                 }
                 else
                 {
                     bufferManager.AddToBuffer(contactIP, message);
-                    Logger.Log($"Message for {selectedContact} (IP: {contactIP}) added to buffer: {txtMessage.Text}");
-                    MessageBox.Show($"Message for {selectedContact} added to buffer due to send failure.");
+                    UpdateHistory(contactLogin, $"[SYSTEM] Message to {contactLogin} buffered due to send failure.", isReceived: false);
+                    Logger.Log($"Message for {contactLogin} (IP: {contactIP}) added to buffer: {txtMessage.Text}");
                 }
             }
         }
@@ -637,7 +702,6 @@ namespace LocalMessenger
                 catch (Exception ex)
                 {
                     Logger.Log($"Message send error to {contactIP}: {ex.Message}");
-                    MessageBox.Show($"Message send error: {ex.Message}");
                     return false;
                 }
             }
@@ -657,8 +721,9 @@ namespace LocalMessenger
                 }
                 else
                 {
+                    var contact = contactIPs.FirstOrDefault(x => x.Value == msg.ContactIP).Key ?? msg.ContactIP;
+                    UpdateHistory(contact, $"[SYSTEM] Failed to send buffered message to {contact}.", isReceived: false);
                     Logger.Log($"Failed to send buffered message to {msg.ContactIP}: {msg.Message}");
-                    MessageBox.Show($"Failed to send buffered message to {msg.ContactIP}: {msg.Message}");
                 }
             }
         }
@@ -674,7 +739,7 @@ namespace LocalMessenger
         private void UpdateSendControlsState()
         {
             bool isContactSelected = lstContacts.SelectedItem != null;
-            bool isSelfSelected = lstContacts.SelectedItem?.ToString() == myLogin;
+            bool isSelfSelected = lstContacts.SelectedItem?.ToString().StartsWith(myLogin) == true;
             btnSend.Enabled = isContactSelected && !isSelfSelected;
             txtMessage.Enabled = isContactSelected && !isSelfSelected;
             Logger.Log($"Send controls state updated: Enabled={isContactSelected && !isSelfSelected}, Selected={lstContacts.SelectedItem?.ToString() ?? "None"}");
@@ -685,6 +750,7 @@ namespace LocalMessenger
             myStatus = cmbStatus.SelectedItem.ToString();
             UpdateStatusAndIP();
             SaveSettings();
+            UpdateContactList();
             Logger.Log($"Status changed to {myStatus}");
         }
 
@@ -693,9 +759,24 @@ namespace LocalMessenger
             UpdateSendControlsState();
             if (lstContacts.SelectedItem != null)
             {
-                UpdateHistoryDisplay(lstContacts.SelectedItem.ToString());
+                var contact = lstContacts.SelectedItem.ToString().Split(' ')[0];
+                UpdateHistoryDisplay(contact);
+                blinkingContacts.Remove(contact);
             }
             Logger.Log($"Selected contact: {lstContacts.SelectedItem?.ToString() ?? "None"}");
+        }
+
+        private void UpdateContactList()
+        {
+            for (int i = 0; i < lstContacts.Items.Count; i++)
+            {
+                var item = lstContacts.Items[i].ToString();
+                var login = item.Split(' ')[0];
+                if (login == myLogin)
+                {
+                    lstContacts.Items[i] = $"{myLogin} ({myName}, {myStatus})";
+                }
+            }
         }
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
@@ -719,6 +800,7 @@ namespace LocalMessenger
                 tcpListener.Stop();
                 Logger.Log("TCP listener stopped");
             }
+            blinkTimer.Stop();
             Logger.Log("Application closing");
         }
 
@@ -791,6 +873,46 @@ namespace LocalMessenger
             else
             {
                 Logger.Log("Account deletion cancelled");
+            }
+        }
+
+        private void btnViewLogs_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var logFile = Path.Combine(AppDataPath, "logs", "log.txt");
+                Process.Start("notepad.exe", logFile);
+                Logger.Log("Opened log file");
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Error opening log file: {ex.Message}");
+                MessageBox.Show($"Error opening log file: {ex.Message}");
+            }
+        }
+
+        private void btnSettings_Click(object sender, EventArgs e)
+        {
+            using (var form = new SettingsForm(myLogin, myName, AppDataPath))
+            {
+                if (form.ShowDialog() == DialogResult.OK)
+                {
+                    if (myLogin != form.NewLogin || myName != form.NewName)
+                    {
+                        myLogin = form.NewLogin;
+                        myName = form.NewName;
+                        SaveSettings();
+                        UpdateStatusAndIP();
+                        UpdateContactList();
+                        Logger.Log($"User settings updated: Login={myLogin}, Name={myName}");
+                    }
+                    if (form.SelectedIP != null && form.SelectedIP != myIP)
+                    {
+                        myIP = form.SelectedIP;
+                        InitializeNetwork();
+                        Logger.Log($"Network reinitialized with new IP: {myIP}");
+                    }
+                }
             }
         }
 
