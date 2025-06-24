@@ -112,27 +112,15 @@ namespace LocalMessenger
             txtMessage.ContextMenuStrip = emojiMenu;
         }
 
-        //private void ConfigureControls()
-        //{
-        //    txtMessage.KeyDown += txtMessage_KeyDown;
-        //    rtbHistory.WordWrap = true;
-        //    rtbHistory.ScrollBars = RichTextBoxScrollBars.Vertical;
-        //    rtbHistory.Font = new Font("Segoe UI Emoji", 10);
-        //    txtMessage.Font = new Font("Segoe UI Emoji", 10);
-        //    lstContacts.DrawMode = OwnerDrawFixed;
-        //    lstContacts.DrawItem += lstContacts_DrawItem;
-        //    rtbHistory.LinkClicked += rtbHistory_LinkClicked;
-        //}
-
         private void ConfigureControls()
         {
-            txtMessage.KeyDown += txtMessage_KeyDown;
+            txtMessage.KeyDown += txtMessage;
             rtbHistory.WordWrap = true;
             rtbHistory.ScrollBars = RichTextBoxScrollBars.Vertical;
             rtbHistory.Font = new Font("Segoe UI Emoji", 10);
             txtMessage.Font = new Font("Segoe UI Emoji", 10);
             lstContacts.OwnerDraw = true;
-            lstContacts.DrawItem += lstContacts_DrawItem;
+            lstContacts.DrawItem += lstContacts;
             rtbHistory.LinkClicked += rtbHistory_LinkClicked;
         }
 
@@ -152,23 +140,6 @@ namespace LocalMessenger
             }
             e.DrawFocusRectangle();
         }
-
-        //private void lstContacts_DrawItem(object sender, DrawItemEventArgs e)
-        //{
-        //    if (e.Index < 0) return;
-        //    var item = lstContacts.Items[e.Index];
-        //    var text = item.Text;
-        //    var login = text.Split(' ')[0];
-        //    var status = text.Contains("Online") ? "Online" : "Offline";
-        //    var isBlinking = blinkingContacts.Contains(login) && (DateTime.Now.Second % 2 == 0);
-        //    e.DrawBackground();
-        //    using (var brush = new SolidBrush(isBlinking ? Color.Yellow : e.ForeColor))
-        //    {
-        //        e.Graphics.DrawImage(statusIcons.Images[status], e.Bounds.Left, e.Bounds.Top);
-        //        e.Graphics.DrawString(text, e.Font, brush, e.Bounds.Left + 20, e.Bounds.Top);
-        //    }
-        //    e.DrawFocusRectangle();
-        //}
 
         private void rtbHistory_LinkClicked(object sender, LinkClickedEventArgs e)
         {
@@ -556,53 +527,41 @@ namespace LocalMessenger
                         }
                         Logger.Log($"Received MESSAGE from {sender}: {decrypted}");
                     }
-                    else if (parts[0] == "FILE")
+                    else if (parts[0].StartsWith("FILE") || parts[0].StartsWith("IMAGE"))
                     {
+                        var isChunked = parts[0].EndsWith("_CHUNKED");
                         var sender = parts[1];
                         var fileName = parts[2];
                         var fileSize = long.Parse(parts[3]);
                         var filePath = Path.Combine(AttachmentsPath, $"{Guid.NewGuid()}_{fileName}");
-                        using (var fs = File.Create(filePath))
+                        var messageType = parts[0].StartsWith("IMAGE") ? MessageType.Image : MessageType.File;
+
+                        if (!isChunked)
                         {
-                            var totalRead = 0L;
-                            while (totalRead < fileSize)
+                            using (var fs = File.Create(filePath))
                             {
-                                var toRead = (int)Math.Min(buffer.Length, fileSize - totalRead);
-                                bytesRead = await stream.ReadAsync(buffer, 0, toRead);
-                                await fs.WriteAsync(buffer, 0, bytesRead);
-                                totalRead += bytesRead;
+                                var totalRead = 0L;
+                                while (totalRead < fileSize)
+                                {
+                                    var toRead = (int)Math.Min(buffer.Length, fileSize - totalRead);
+                                    bytesRead = await stream.ReadAsync(buffer, 0, toRead);
+                                    await fs.WriteAsync(buffer, 0, bytesRead);
+                                    totalRead += bytesRead;
+                                }
                             }
                         }
-                        UpdateHistory(sender, filePath, MessageType.File, isReceived: true);
+                        else
+                        {
+                            var chunkSize = int.Parse(parts[4]);
+                            await ReceiveLargeFileAsync(stream, filePath, fileSize, chunkSize, sharedKeys[sender]);
+                        }
+
+                        UpdateHistory(sender, filePath, messageType, isReceived: true);
                         if (lstContacts.SelectedItems.Count == 0 || !lstContacts.SelectedItems[0].Text.StartsWith(sender))
                         {
                             blinkingContacts.Add(sender);
                         }
-                        Logger.Log($"Received FILE from {sender}: {fileName} saved to {filePath}");
-                    }
-                    else if (parts[0] == "IMAGE")
-                    {
-                        var sender = parts[1];
-                        var fileName = parts[2];
-                        var fileSize = long.Parse(parts[3]);
-                        var filePath = Path.Combine(AttachmentsPath, $"{Guid.NewGuid()}_{fileName}");
-                        using (var fs = File.Create(filePath))
-                        {
-                            var totalRead = 0L;
-                            while (totalRead < fileSize)
-                            {
-                                var toRead = (int)Math.Min(buffer.Length, fileSize - totalRead);
-                                bytesRead = await stream.ReadAsync(buffer, 0, toRead);
-                                await fs.WriteAsync(buffer, 0, bytesRead);
-                                totalRead += bytesRead;
-                            }
-                        }
-                        UpdateHistory(sender, filePath, MessageType.Image, isReceived: true);
-                        if (lstContacts.SelectedItems.Count == 0 || !lstContacts.SelectedItems[0].Text.StartsWith(sender))
-                        {
-                            blinkingContacts.Add(sender);
-                        }
-                        Logger.Log($"Received IMAGE from {sender}: {fileName} saved to {filePath}");
+                        Logger.Log($"Received {messageType} from {sender}: {fileName} saved to {filePath}");
                     }
                     else if (parts[0] == "GROUP_MESSAGE")
                     {
@@ -818,9 +777,9 @@ namespace LocalMessenger
                     var filePath = openFileDialog.FileName;
                     var fileName = Path.GetFileName(filePath);
                     var fileSize = new FileInfo(filePath).Length;
-                    if (fileSize > 100 * 1024 * 1024) // 100 MB limit
+                    if (fileSize > 2L * 1024 * 1024 * 1024) // 2 GB limit
                     {
-                        MessageBox.Show("File size exceeds 100 MB limit.", "Error");
+                        MessageBox.Show("File size exceeds 2 GB limit.", "Error");
                         return;
                     }
 
@@ -847,8 +806,17 @@ namespace LocalMessenger
                     var isImage = new[] { ".jpg", ".png", ".gif" }.Contains(Path.GetExtension(fileName).ToLower());
                     var messageType = isImage ? MessageType.Image : MessageType.File;
                     var messagePrefix = isImage ? "IMAGE" : "FILE";
-                    var message = $"{messagePrefix}|{myLogin}|{fileName}|{fileSize}";
-                    bool sent = await SendFileAsync(contactIP, message, cachedFilePath);
+                    bool sent;
+
+                    if (fileSize <= 100 * 1024 * 1024) // 100 MB
+                    {
+                        var message = $"{messagePrefix}|{myLogin}|{fileName}|{fileSize}";
+                        sent = await SendFileAsync(contactIP, message, cachedFilePath);
+                    }
+                    else
+                    {
+                        sent = await SendLargeFileAsync(contactIP, messagePrefix, fileName, fileSize, cachedFilePath, sharedKey);
+                    }
 
                     if (sent)
                     {
@@ -857,7 +825,7 @@ namespace LocalMessenger
                     }
                     else
                     {
-                        bufferManager.AddToBuffer(contactIP, message);
+                        bufferManager.AddToBuffer(contactIP, $"{messagePrefix}|{myLogin}|{fileName}|{fileSize}");
                         UpdateHistory(contactLogin, $"[SYSTEM] {messageType} to {contactLogin} buffered due to send failure.", MessageType.Text, isReceived: false);
                         Logger.Log($"{messageType} for {contactLogin} (IP: {contactIP}) added to buffer: {fileName}");
                     }
@@ -908,30 +876,6 @@ namespace LocalMessenger
             }
             return null;
         }
-
-        //private async Task<bool> SendTcpMessageAsync(string contactIP, string message)
-        //{
-        //    using (var client = new TcpClient())
-        //    {
-        //        try
-        //        {
-        //            Logger.Log($"Sending TCP message to {contactIP}: {message}");
-        //            await client.ConnectAsync(contactIP, message12000);
-        //            using (var stream = client.GetStream())
-        //            {
-        //            var bytes = streamEncoding.UTF8.GetBytes(message);
-        //            await stream.WriteAsync(bytes, 0, bytes.Length);
-        //            }
-        //            Logger.Log($"Message sent successfully to {contactIP}");
-        //            return true;
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            Logger.Log($"Message send error to {contactIP}: {ex.Message}");
-        //            return false;
-        //        }
-        //    }
-        //}
 
         private async Task<bool> SendTcpMessageAsync(string contactIP, string message)
         {
@@ -991,6 +935,126 @@ namespace LocalMessenger
             }
         }
 
+        private async Task<bool> SendLargeFileAsync(string contactIP, string messagePrefix, string fileName, long fileSize, string filePath, byte[] sharedKey)
+        {
+            const int chunkSize = 1024 * 1024; // 1 MB chunks
+            using (var client = new TcpClient())
+            {
+                try
+                {
+                    await client.ConnectAsync(contactIP, 12000);
+                    using (var stream = client.GetStream())
+                    {
+                        // Send file metadata
+                        var message = $"{messagePrefix}_CHUNKED|{myLogin}|{fileName}|{fileSize}|{chunkSize}";
+                        var messageBytes = Encoding.UTF8.GetBytes(message);
+                        await stream.WriteAsync(messageBytes, 0, messageBytes.Length);
+                        await stream.FlushAsync();
+
+                        // Show progress form
+                        var progressForm = new ProgressForm(fileName, fileSize);
+                        progressForm.Show();
+
+                        using (var fs = File.OpenRead(filePath))
+                        {
+                            var buffer = new byte[chunkSize];
+                            long totalSent = 0;
+                            int bytesRead;
+                            while ((bytesRead = await fs.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                            {
+                                // Encrypt chunk
+                                var nonce = GenerateNonce();
+                                var encryptedChunk = EncryptChunk(buffer, bytesRead, sharedKey, nonce);
+                                var chunkMessage = $"{Convert.ToBase64String(encryptedChunk)}|{Convert.ToBase64String(nonce)}|{bytesRead}";
+                                var chunkBytes = Encoding.UTF8.GetBytes(chunkMessage);
+                                await stream.WriteAsync(chunkBytes, 0, chunkBytes.Length);
+                                await stream.FlushAsync();
+
+                                totalSent += bytesRead;
+                                progressForm.UpdateProgress(totalSent);
+                            }
+                        }
+
+                        progressForm.Close();
+                        Logger.Log($"Large file sent successfully to {contactIP}: {filePath}");
+                        return true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log($"Large file send error to {contactIP}: {ex.Message}");
+                    return false;
+                }
+            }
+        }
+
+        private byte[] EncryptChunk(byte[] data, int length, byte[] key, byte[] nonce)
+        {
+            using (var aes = Aes.Create())
+            {
+                aes.Key = key;
+                aes.IV = nonce;
+                aes.Mode = CipherMode.CBC;
+                aes.Padding = PaddingMode.PKCS7;
+
+                using (var ms = new MemoryStream())
+                using (var cs = new CryptoStream(ms, aes.CreateEncryptor(), CryptoStreamMode.Write))
+                {
+                    cs.Write(data, 0, length);
+                    cs.FlushFinalBlock();
+                    return ms.ToArray();
+                }
+            }
+        }
+
+        private async Task ReceiveLargeFileAsync(NetworkStream stream, string filePath, long fileSize, int chunkSize, byte[] sharedKey)
+        {
+            using (var fs = File.Create(filePath))
+            {
+                var progressForm = new ProgressForm(Path.GetFileName(filePath), fileSize);
+                progressForm.Show();
+                long totalRead = 0;
+
+                while (totalRead < fileSize)
+                {
+                    var buffer = new byte[4096];
+                    var bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+                    var chunkMessage = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                    var chunkParts = chunkMessage.Split('|');
+                    var encryptedChunk = Convert.FromBase64String(chunkParts[0]);
+                    var nonce = Convert.FromBase64String(chunkParts[1]);
+                    var chunkLength = int.Parse(chunkParts[2]);
+
+                    var decryptedChunk = DecryptChunk(encryptedChunk, sharedKey, nonce);
+                    await fs.WriteAsync(decryptedChunk, 0, chunkLength);
+                    totalRead += chunkLength;
+
+                    progressForm.UpdateProgress(totalRead);
+                }
+
+                progressForm.Close();
+            }
+        }
+
+        private byte[] DecryptChunk(byte[] cipherText, byte[] key, byte[] nonce)
+        {
+            using (var aes = Aes.Create())
+            {
+                aes.Key = key;
+                aes.IV = nonce;
+                aes.Mode = CipherMode.CBC;
+                aes.Padding = PaddingMode.PKCS7;
+
+                using (var ms = new MemoryStream())
+                using (var cs = new CryptoStream(ms, aes.CreateDecryptor(), CryptoStreamMode.Write))
+                {
+                    cs.Write(cipherText, 0, cipherText.Length);
+                    cs.FlushFinalBlock();
+                    return ms.ToArray();
+                }
+            }
+        }
+
         private async void TrySendBufferedMessagesAsync()
         {
             var messages = bufferManager.GetBuffer();
@@ -1022,16 +1086,6 @@ namespace LocalMessenger
             Logger.Log($"Updated UI: Status={myStatus}, IP={myIP}, User={myLogin} ({myName})");
         }
 
-        //private void UpdateSendControlsState()
-        //{
-        //    bool isContactSelected = lstContacts.SelectedItems.Count > 0;
-        //    bool isSelfSelected = isContactSelected && lstContacts.SelectedItems[0].Text.StartsWith(myLogin);
-        //    btnSend.Enabled = isContactSelected && !isSelfSelected;
-        //    btnSendFile.Enabled = isContactSelected && !isSelfSelected;
-        //    txtMessage.Enabled = isContactSelected && !isSelfSelected;
-        //    Logger.Log($"Send controls state updated: Enabled={isContactSelected && !isSelfSelected}, Selected={lstContacts.SelectedItems.Count > 0 ? lstContacts.SelectedItems[0].Text : "None"}");
-        //}
-
         private void UpdateSendControlsState()
         {
             bool isContactSelected = lstContacts.SelectedItems.Count > 0;
@@ -1039,9 +1093,8 @@ namespace LocalMessenger
             btnSend.Enabled = isContactSelected && !isSelfSelected;
             btnSendFile.Enabled = isContactSelected && !isSelfSelected;
             txtMessage.Enabled = isContactSelected && !isSelfSelected;
-            Logger.Log($"Send controls state updated: Enabled={(isContactSelected && !isSelfSelected)}, Selected={(lstContacts.SelectedItems.Count > 0 ? lstContacts.SelectedItems[0].Text : "None")}");
+            Logger.Log($"Send controls state updated: {(isContactSelected && !isSelfSelected)}, Selected={(lstContacts.SelectedItems.Count > 0 ? lstContacts.SelectedItems[0].Text : "None")}");
         }
-
 
         private void cmbStatus_SelectedIndexChanged(object sender, EventArgs e)
         {
@@ -1060,9 +1113,12 @@ namespace LocalMessenger
                 var contact = lstContacts.SelectedItems[0].Text.Split(' ')[0];
                 UpdateHistoryDisplay(contact);
                 blinkingContacts.Remove(contact);
+                Logger.Log($"Selected contact: {lstContacts.SelectedItems[0].Text}");
             }
-            Logger.Log($"Selected contact: {(lstContacts.SelectedItems.Count > 0 ? lstContacts.SelectedItems[0].Text : "None")}");
-            //Logger.Log($"Updated history for {contact}: {(isReceived ? "Received" : "Sent")} - {content} ({type})");
+            else
+            {
+                Logger.Log("No contact selected");
+            }
         }
 
         private void UpdateContactList()
@@ -1106,11 +1162,11 @@ namespace LocalMessenger
         private void SaveSettings()
         {
             var settings = new Dictionary<string, string>
-    {
-        { "login", myLogin },
-        { "name", myName },
-        { "status", myStatus }
-    };
+            {
+                { "login", myLogin },
+                { "name", myName },
+                { "status", myStatus }
+            };
             try
             {
                 File.WriteAllText(SettingsFile, Newtonsoft.Json.JsonConvert.SerializeObject(settings));
@@ -1209,7 +1265,7 @@ namespace LocalMessenger
                     {
                         myIP = form.SelectedIP;
                         InitializeNetwork();
-                        Logger.Log($"Network reinitialized with new IP: {myIP}");
+                        Logger.Log($"Network reinitialized with IP: {myIP}");
                     }
                 }
             }

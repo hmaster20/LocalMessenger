@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net.NetworkInformation;
 using System.Diagnostics;
 using System.Windows.Forms;
+using System.Threading.Tasks;
 
 namespace LocalMessenger
 {
@@ -51,112 +52,110 @@ namespace LocalMessenger
             if (cmbInterfaces.Items.Count > 0) cmbInterfaces.SelectedIndex = 0;
         }
 
-private void StartLogMonitoring()
-{
-    if (!File.Exists(_logFile)) return;
-
-    const int visibleLines = 150; // Lines visible on screen + buffer
-    const int blockSize = 300; // Load 300 lines at a time
-    var logCache = new List<string>();
-    long lastPosition = 0;
-
-    // Initial load
-    LoadLogBlock(_logFile, ref logCache, ref lastPosition, visibleLines);
-
-    // Update UI
-    txtLogs.Text = string.Join(Environment.NewLine, logCache);
-
-    // Scroll event handler for loading more logs
-    txtLogs.MouseWheel += async (s, e) =>
-    {
-        if (txtLogs.SelectionStart <= 0 && e.Delta > 0 && logCache.Count >= visibleLines)
+        private void StartLogMonitoring()
         {
-            await LoadMoreLogsAsync(_logFile, ref logCache, ref lastPosition, blockSize);
-            txtLogs.Text = string.Join(Environment.NewLine, logCache.Take(visibleLines));
-            txtLogs.SelectionStart = 0;
-        }
-    };
+            if (!File.Exists(_logFile)) return;
 
-    // Real-time monitoring
-    var timer = new Timer { Interval = 1000 };
-    timer.Tick += async (s, e) =>
-    {
-        if (txtLogs.Enabled && File.Exists(_logFile))
-        {
-            await UpdateLogsAsync(_logFile, ref logCache, ref lastPosition);
-            txtLogs.Text = string.Join(Environment.NewLine, logCache.Take(visibleLines));
-            txtLogs.SelectionStart = txtLogs.Text.Length;
-            txtLogs.ScrollToCaret();
-        }
-    };
-    timer.Start();
-}
+            const int visibleLines = 150; // Lines visible on screen + buffer
+            const int blockSize = 300; // Load 300 lines at a time
+            var logCache = new List<string>();
+            long lastPosition = 0;
 
-private void LoadLogBlock(string logFile, ref List<string> logCache, ref long lastPosition, int linesToLoad)
-{
-    using (var fs = new FileStream(logFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-    using (var sr = new StreamReader(fs))
-    {
-        sr.BaseStream.Seek(lastPosition, SeekOrigin.Begin);
-        for (int i = 0; i < linesToLoad && !sr.EndOfStream; i++)
-        {
-            var line = sr.ReadLine();
-            if (line != null) logCache.Add(line);
-        }
-        lastPosition = sr.BaseStream.Position;
-    }
-}
+            // Initial load
+            LoadLogBlock(_logFile, ref logCache, visibleLines);
 
-private async Task LoadMoreLogsAsync(string logFile, ref List<string> logCache, ref long lastPosition, int blockSize)
-{
-    using (var fs = new FileStream(logFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-    using (var sr = new StreamReader(fs))
-    {
-        sr.BaseStream.Seek(0, SeekOrigin.Begin);
-        var newCache = new List<string>();
-        int linesRead = 0;
+            // Update UI
+            txtLogs.Text = string.Join(Environment.NewLine, logCache);
 
-        while (linesRead < blockSize && !sr.EndOfStream)
-        {
-            var line = await sr.ReadLineAsync();
-            if (line != null)
+            // Scroll event handler for loading more logs
+            txtLogs.MouseWheel += async (s, e) =>
             {
-                newCache.Add(line);
-                linesRead++;
+                if (txtLogs.SelectionStart == 0 && e.Delta > 0 && logCache.Count >= visibleLines)
+                {
+                    await LoadMoreLogsAsync(_logFile, ref logCache, ref lastPosition, blockSize);
+                    txtLogs.Text = string.Join(Environment.NewLine, logCache.Take(visibleLines));
+                    txtLogs.SelectionStart = 0;
+                }
+            };
+
+            // Real-time monitoring
+            var timer = new Timer { Interval = 1000 };
+            timer.Tick += async (s, e) =>
+            {
+                if (txtLogs.Enabled && File.Exists(_logFile))
+                {
+                    await UpdateLogsAsync(_logFile, ref logCache, ref lastPosition);
+                    txtLogs.Text = string.Join(Environment.NewLine, logCache.Take(visibleLines));
+                    txtLogs.SelectionStart = txtLogs.Text.Length;
+                    txtLogs.ScrollToCaret();
+                }
+            };
+            timer.Start();
+        }
+
+        private void LoadLogBlock(string logFile, ref List<string> logCache, int linesToLoad)
+        {
+            using (var fs = new FileStream(logFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (var sr = new StreamReader(fs))
+            {
+                for (int i = 0; i < linesToLoad && !sr.EndOfStream; i++)
+                {
+                    var line = sr.ReadLine();
+                    if (line != null) logCache.Add(line);
+                }
             }
         }
 
-        logCache.InsertRange(0, newCache);
-        lastPosition = sr.BaseStream.Position;
-
-        // Trim cache to prevent memory overflow
-        if (logCache.Count > blockSize * 2)
+        private async Task LoadMoreLogsAsync(string logFile, ref List<string> logCache, ref long lastPosition, int blockSize)
         {
-            logCache.RemoveRange(blockSize * 2, logCache.Count - blockSize * 2);
-        }
-    }
-}
+            using (var fs = new FileStream(logFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (var sr = new StreamReader(fs))
+            {
+                sr.BaseStream.Seek(0, SeekOrigin.Begin);
+                var newCache = new List<string>();
+                int linesRead = 0;
 
-private async Task UpdateLogsAsync(string logFile, ref List<string> logCache, ref long lastPosition)
-{
-    using (var fs = new FileStream(logFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-    using (var sr = new StreamReader(fs))
-    {
-        sr.BaseStream.Seek(lastPosition, SeekOrigin.Begin);
-        while (!sr.EndOfStream)
-        {
-            var line = await sr.ReadLineAsync();
-            if (line != null) logCache.Add(line);
-        }
-        lastPosition = sr.BaseStream.Position;
+                while (linesRead < blockSize && !sr.EndOfStream)
+                {
+                    var line = await sr.ReadLineAsync();
+                    if (line != null)
+                    {
+                        newCache.Add(line);
+                        linesRead++;
+                    }
+                }
 
-        // Trim cache
-        if (logCache.Count > 450) // visibleLines + blockSize
-        {
-            logCache.RemoveRange(0, logCache.Count - 450);
+                logCache.InsertRange(0, newCache);
+                lastPosition = sr.BaseStream.Position;
+
+                // Trim cache to prevent memory overflow
+                if (logCache.Count > blockSize * 2)
+                {
+                    logCache.RemoveRange(blockSize * 2, logCache.Count - blockSize * 2);
+                }
+            }
         }
-    }
-}
+
+        private async Task UpdateLogsAsync(string logFile, ref List<string> logCache, ref long lastPosition)
+        {
+            using (var fs = new FileStream(logFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (var sr = new StreamReader(fs))
+            {
+                sr.BaseStream.Seek(lastPosition, SeekOrigin.Begin);
+                while (!sr.EndOfStream)
+                {
+                    var line = await sr.ReadLineAsync();
+                    if (line != null) logCache.Add(line);
+                }
+                lastPosition = sr.BaseStream.Position;
+
+                // Trim cache
+                if (logCache.Count > 450) // visibleLines + blockSize
+                {
+                    logCache.RemoveRange(0, logCache.Count - 450);
+                }
+            }
+        }
 
         private void chkLiveLogs_CheckedChanged(object sender, EventArgs e)
         {

@@ -13,39 +13,9 @@
             base.Dispose(disposing);
         }
 
-        //private void InitializeComponent()
-        //{
-        //    this.Size = new Size(500, 400);
-        //    this.Text = "Settings";
-        //    this.FormBorderStyle = FormBorderStyle.FixedDialog;
-        //    this.MaximizeBox = false;
-
-        //    var lblLogin = new Label { Text = "Login:", Location = new Point(10, 10), Width = 100 };
-        //    txtLogin = new TextBox { Location = new Point(110, 10), Width = 200 };
-        //    var lblName = new Label { Text = "Name:", Location = new Point(10, 40), Width = 100 };
-        //    txtName = new TextBox { Location = new Point(110, 40), Width = 200 };
-        //    var lblInterface = new Label { Text = "Network Interface:", Location = new Point(10, 70), Width = 100 };
-        //    cmbInterfaces = new ComboBox { Location = new Point(110, 70), Width = 200, DropDownStyle = ComboBoxStyle.DropDownList };
-        //    var chkLiveLogs = new CheckBox { Text = "Show Live Logs", Location = new Point(10, 100), Width = 100 };
-        //    txtLogs = new TextBox { Location = new Point(10, 130), Size = new Size(460, 150), Multiline = true, ScrollBars = ScrollBars.Vertical, ReadOnly = true };
-        //    var btnOpenLogs = new Button { Text = "Open Log File", Location = new Point(10, 290), Width = 100 };
-        //    var btnSave = new Button { Text = "Save", Location = new Point(370, 290), Width = 100 };
-
-        //    chkLiveLogs.CheckedChanged += (s, e) => txtLogs.Enabled = chkLiveLogs.Checked;
-        //    btnOpenLogs.Click += btnOpenLogs_Click;
-        //    btnSave.Click += btnSave_Click;
-
-        //    this.Controls.AddRange(new Control[] { lblLogin, txtLogin, lblName, txtName, lblInterface, cmbInterfaces, chkLiveLogs, txtLogs, btnOpenLogs, btnSave });
-        //}
-
-        private TextBox txtLogin;
-        private TextBox txtName;
-        private ComboBox cmbInterfaces;
-        private TextBox txtLogs;
-
         private void InitializeComponent()
         {
-            this.components = new System.ComponentModel.Container();
+            this.components = new System.ComponentModel.IContainer();
             this.txtLogin = new System.Windows.Forms.TextBox();
             this.txtName = new System.Windows.Forms.TextBox();
             this.cmbInterfaces = new System.Windows.Forms.ComboBox();
@@ -100,7 +70,7 @@
             // lblInterface
             this.lblInterface.Location = new System.Drawing.Point(10, 64);
             this.lblInterface.Name = "lblInterface";
-            this.lblInterface.Size = new System.Drawing.Size(100, 23);
+            this.lblInterface.Size = new System.Drawing.Size(100, 20);
             this.lblInterface.Text = "Network Interface:";
 
             // chkLiveLogs
