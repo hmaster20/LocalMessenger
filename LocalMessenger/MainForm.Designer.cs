@@ -186,7 +186,7 @@ namespace LocalMessenger
             this.btnOpenSettings.Size = new System.Drawing.Size(121, 23);
             this.btnOpenSettings.TabIndex = 10;
             this.btnOpenSettings.Text = "Settings";
-            this.btnOpenSettings.Click += new System.EventHandler(this.btnViewLogs_Click);
+            this.btnOpenSettings.Click += new System.EventHandler(this.btnSettings_Click);
             // 
             // btnOpenLogFile
             // 
@@ -196,6 +196,10 @@ namespace LocalMessenger
             this.btnOpenLogFile.TabIndex = 12;
             this.btnOpenLogFile.Text = "Open LogFile";
             this.btnOpenLogFile.UseVisualStyleBackColor = true;
+            //this.btnOpenLogFile.Click += new System.EventHandler(this.btnOpenLogFile_Click);
+            this.btnOpenLogFile.Click += new System.EventHandler(this.btnViewLogs_Click);
+
+
             // 
             // MainForm
             // 

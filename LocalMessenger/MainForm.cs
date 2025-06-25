@@ -354,9 +354,10 @@ namespace LocalMessenger
 
         private void AddCurrentUserToContacts()
         {
-            if (!lstContacts.Items.Cast<ListViewItem>().Any(i => i.Text == $"{myLogin} ({myName}, {myStatus})"))
+            Logger.Log($"Added {myLogin} ({myName}, {myStatus}) to lstContacts");
+            if (!lstContacts.Items.Cast<ListViewItem>().Any(i => i.Text == $"{myName} ({myStatus})"))
             {
-                lstContacts.Items.Add(new ListViewItem($"{myLogin} ({myName}, {myStatus})"));
+                lstContacts.Items.Add(new ListViewItem($"{myName} ({myStatus})"));
                 Logger.Log($"Added current user to contacts: {myLogin}");
             }
         }
@@ -1405,9 +1406,10 @@ namespace LocalMessenger
             using (var brush = new SolidBrush(isBlinking ? Color.Yellow : Color.Gray))
             {
                 e.Graphics.DrawImage(statusIcons.Images[status], e.Bounds.Left, e.Bounds.Top);
-                e.Graphics.DrawString(text, new Font("Segoe UI Emoji", 10), brush, e.Bounds.Left + 20, e.Bounds.Top);
+                e.Graphics.DrawString(text, new Font("Segoe UI Emoji", 9), brush, e.Bounds.Left + 20, e.Bounds.Top);
             }
             e.DrawFocusRectangle();
         }
+
     }
 }
