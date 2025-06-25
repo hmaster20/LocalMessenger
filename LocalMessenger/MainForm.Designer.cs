@@ -56,7 +56,7 @@ namespace LocalMessenger
             this.lstContacts.HideSelection = false;
             this.lstContacts.Location = new System.Drawing.Point(12, 12);
             this.lstContacts.Name = "lstContacts";
-            this.lstContacts.Size = new System.Drawing.Size(150, 260);
+            this.lstContacts.Size = new System.Drawing.Size(150, 233);
             this.lstContacts.TabIndex = 0;
             this.lstContacts.UseCompatibleStateImageBehavior = false;
             this.lstContacts.View = System.Windows.Forms.View.List;
@@ -68,9 +68,10 @@ namespace LocalMessenger
             this.txtMessage.Enabled = false;
             this.txtMessage.Location = new System.Drawing.Point(168, 196);
             this.txtMessage.Name = "txtMessage";
-            this.txtMessage.Size = new System.Drawing.Size(200, 24);
+            this.txtMessage.Size = new System.Drawing.Size(325, 24);
             this.txtMessage.TabIndex = 1;
             this.txtMessage.KeyDown += new System.Windows.Forms.KeyEventHandler(this.txtMessage_KeyDown);
+            this.txtMessage.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.txtMessage_KeyPress);
             // 
             // cmbStatus
             // 
@@ -78,7 +79,7 @@ namespace LocalMessenger
             "Online",
             "Busy",
             "Do Not Disturb"});
-            this.cmbStatus.Location = new System.Drawing.Point(168, 222);
+            this.cmbStatus.Location = new System.Drawing.Point(295, 9);
             this.cmbStatus.Name = "cmbStatus";
             this.cmbStatus.Size = new System.Drawing.Size(121, 24);
             this.cmbStatus.TabIndex = 2;
@@ -92,7 +93,7 @@ namespace LocalMessenger
             // 
             // btnCreateGroup
             // 
-            this.btnCreateGroup.Location = new System.Drawing.Point(168, 249);
+            this.btnCreateGroup.Location = new System.Drawing.Point(39, 251);
             this.btnCreateGroup.Name = "btnCreateGroup";
             this.btnCreateGroup.Size = new System.Drawing.Size(100, 23);
             this.btnCreateGroup.TabIndex = 3;
@@ -102,7 +103,7 @@ namespace LocalMessenger
             // btnSend
             // 
             this.btnSend.Enabled = false;
-            this.btnSend.Location = new System.Drawing.Point(374, 197);
+            this.btnSend.Location = new System.Drawing.Point(499, 197);
             this.btnSend.Name = "btnSend";
             this.btnSend.Size = new System.Drawing.Size(100, 23);
             this.btnSend.TabIndex = 4;
@@ -112,7 +113,7 @@ namespace LocalMessenger
             // btnSendFile
             // 
             this.btnSendFile.Enabled = false;
-            this.btnSendFile.Location = new System.Drawing.Point(374, 222);
+            this.btnSendFile.Location = new System.Drawing.Point(499, 222);
             this.btnSendFile.Name = "btnSendFile";
             this.btnSendFile.Size = new System.Drawing.Size(100, 23);
             this.btnSendFile.TabIndex = 5;
@@ -196,10 +197,7 @@ namespace LocalMessenger
             this.btnOpenLogFile.TabIndex = 12;
             this.btnOpenLogFile.Text = "Open LogFile";
             this.btnOpenLogFile.UseVisualStyleBackColor = true;
-            //this.btnOpenLogFile.Click += new System.EventHandler(this.btnOpenLogFile_Click);
             this.btnOpenLogFile.Click += new System.EventHandler(this.btnViewLogs_Click);
-
-
             // 
             // MainForm
             // 

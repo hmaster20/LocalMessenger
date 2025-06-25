@@ -1105,7 +1105,7 @@ namespace LocalMessenger
         {
             lblStatus.Text = $"Status: {myStatus}";
             lblIP.Text = $"IP: {myIP}";
-            lblUserInfo.Text = $"User: {myLogin} ({myName})";
+            lblUserInfo.Text = $"User: {myName} ({myLogin})";
             Logger.Log($"Updated UI: Status={myStatus}, IP={myIP}, User={myLogin} ({myName})");
         }
 
@@ -1391,7 +1391,18 @@ namespace LocalMessenger
 
         private void txtMessage_KeyDown(object sender, KeyEventArgs e)
         {
-            btnSend_Click(sender, e);
+
+
+            //btnSend_Click(sender, e);
+        }
+
+        private void txtMessage_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (e.KeyChar == (char)13) // Press ENTER
+                btnSend_Click(sender, e);
+            //MessageBox.Show("ENTER has been pressed!");
+            //else if (e.KeyChar == (char)27)
+            //    this.Close();
         }
 
         private void lstContacts_DrawItem(object sender, DrawListViewItemEventArgs e)
