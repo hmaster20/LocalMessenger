@@ -41,6 +41,7 @@ namespace LocalMessenger
         //private Timer blinkTimer;
         private HashSet<string> blinkingContacts = new HashSet<string>();
         private ImageList statusIcons;
+        private Icon appIcon; // Поле для хранения иконки
 
         private CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
         private Dictionary<string, DateTime> lastHelloTimes = new Dictionary<string, DateTime>();
@@ -48,6 +49,9 @@ namespace LocalMessenger
         public MainForm()
         {
             InitializeComponent();
+            // Загружаем иконку из ресурсов
+            appIcon = Properties.Resources.LocalMessenger; // Убедитесь, что имя ресурса совпадает
+            this.Icon = appIcon; // Устанавливаем иконку для формы
             //InitializeBlinkTimer();
             InitializeStatusIcons();
             InitializeEmojiMenu();
@@ -59,7 +63,7 @@ namespace LocalMessenger
             InitializeNetwork();
             historyManager = new HistoryManager(AppDataPath, encryptionKey);
             bufferManager = new MessageBufferManager(AppDataPath);
-            new TrayIconManager(this);
+            new TrayIconManager(this, appIcon); // Передаём иконку в TrayIconManager
             AddCurrentUserToContacts();
             StartUdpBroadcast();
             StartUdpListener();

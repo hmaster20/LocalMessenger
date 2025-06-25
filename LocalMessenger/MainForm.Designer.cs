@@ -86,7 +86,6 @@ namespace LocalMessenger
             // 
             // notifyIcon
             // 
-            this.notifyIcon.Icon = ((System.Drawing.Icon)(resources.GetObject("notifyIcon.Icon")));
             this.notifyIcon.Text = "LocalMessenger";
             // 
             // btnCreateGroup
@@ -215,12 +214,12 @@ namespace LocalMessenger
             this.Controls.Add(this.lblIP);
             this.Controls.Add(this.lblUserInfo);
             this.Controls.Add(this.rtbHistory);
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("LocalMessenger"))); // Устанавливаем иконку формы
             this.Name = "MainForm";
             this.Text = "LocalMessenger";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
             this.ResumeLayout(false);
             this.PerformLayout();
-
         }
 
         private System.Windows.Forms.Button btnOpenSettings;

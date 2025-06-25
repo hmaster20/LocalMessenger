@@ -9,13 +9,12 @@ namespace LocalMessenger
         private readonly NotifyIcon notifyIcon;
         private readonly MainForm mainForm;
 
-        public TrayIconManager(MainForm form)
+        public TrayIconManager(MainForm form, Icon appIcon)
         {
             mainForm = form;
             notifyIcon = new NotifyIcon
             {
-                // Используем системную иконку или создаем простую иконку
-                Icon = SystemIcons.Application, 
+                Icon = appIcon, // Используем переданную иконку
                 Visible = false,
                 Text = "Local Messenger"
             };
@@ -40,7 +39,6 @@ namespace LocalMessenger
                 mainForm.Hide();
                 notifyIcon.Visible = true;
                 notifyIcon.ShowBalloonTip(1000, "Local Messenger", "Приложение свернуто в трей", ToolTipIcon.Info);
-                Logger.Log("Application minimized to tray");
             }
         }
 
@@ -62,10 +60,5 @@ namespace LocalMessenger
             notifyIcon.Dispose();
             Application.Exit();
         }
-
-
- 
-    
-
     }
 }
