@@ -89,7 +89,6 @@ namespace LocalMessenger
             // 
             this.notifyIcon.Icon = ((System.Drawing.Icon)(resources.GetObject("notifyIcon.Icon")));
             this.notifyIcon.Text = "LocalMessenger";
-            this.notifyIcon.DoubleClick += new System.EventHandler(this.notifyIcon_DoubleClick);
             // 
             // btnCreateGroup
             // 
@@ -220,7 +219,6 @@ namespace LocalMessenger
             this.Name = "MainForm";
             this.Text = "LocalMessenger";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
-            this.Resize += new System.EventHandler(this.MainForm_Resize);
             this.ResumeLayout(false);
             this.PerformLayout();
 

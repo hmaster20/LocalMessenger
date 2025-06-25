@@ -1307,27 +1307,27 @@ namespace LocalMessenger
             return key;
         }
 
-        private void notifyIcon_DoubleClick(object sender, EventArgs e)
-        {
-            this.WindowState = FormWindowState.Normal;
-            this.ShowInTaskbar = true;
-            notifyIcon.Visible = false;
-            Logger.Log("Notification icon double-clicked. Restored.");
-        }
+        //private void notifyIcon_DoubleClick(object sender, EventArgs e)
+        //{
+        //    this.WindowState = FormWindowState.Normal;
+        //    this.ShowInTaskbar = true;
+        //    notifyIcon.Visible = false;
+        //    Logger.Log("Notification icon double-clicked. Restored.");
+        //}
 
-        private void MainForm_Resize(object sender, EventArgs e)
-        {
-            if (this.WindowState == FormWindowState.Minimized)
-            {
-                this.ShowInTaskbar = false;
-                notifyIcon.Visible = true;
-                notifyIcon.Text = "LocalMessenger";
-                notifyIcon.BalloonTipText = "LocalMessenger is running in the background";
-                notifyIcon.BalloonTipTitle = "LocalMessenger";
-                notifyIcon.ShowBalloonTip(500);
-                Logger.Log("Application minimized to tray");
-            }
-        }
+        //private void MainForm_Resize(object sender, EventArgs e)
+       // {
+            //if (this.WindowState == FormWindowState.Minimized)
+            //{
+            //    this.ShowInTaskbar = false;
+            //    notifyIcon.Visible = true;
+            //    notifyIcon.Text = "LocalMessenger";
+            //    notifyIcon.BalloonTipText = "LocalMessenger is running in the background";
+            //    notifyIcon.BalloonTipTitle = "LocalMessenger";
+            //    notifyIcon.ShowBalloonTip(500);
+            //    Logger.Log("Application minimized to tray");
+            //}
+        //}
 
         private async void btnCreateGroup_Click(object sender, EventArgs e)
         {

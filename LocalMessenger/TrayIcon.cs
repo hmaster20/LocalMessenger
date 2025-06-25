@@ -40,6 +40,7 @@ namespace LocalMessenger
                 mainForm.Hide();
                 notifyIcon.Visible = true;
                 notifyIcon.ShowBalloonTip(1000, "Local Messenger", "Приложение свернуто в трей", ToolTipIcon.Info);
+                Logger.Log("Application minimized to tray");
             }
         }
 
