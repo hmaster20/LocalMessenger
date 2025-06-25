@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -7,10 +9,9 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using System.Drawing;
-using System.Diagnostics;
 
 namespace LocalMessenger
 {
@@ -37,14 +38,16 @@ namespace LocalMessenger
         private HistoryManager historyManager;
         private MessageBufferManager bufferManager;
         private byte[] encryptionKey;
-        private Timer blinkTimer;
+        //private Timer blinkTimer;
         private HashSet<string> blinkingContacts = new HashSet<string>();
         private ImageList statusIcons;
+
+        private CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
 
         public MainForm()
         {
             InitializeComponent();
-            InitializeBlinkTimer();
+            //InitializeBlinkTimer();
             InitializeStatusIcons();
             InitializeEmojiMenu();
             Logger.Log($"Application started. Session initialized for IP: {myIP}");
@@ -67,12 +70,12 @@ namespace LocalMessenger
             ConfigureControls();
         }
 
-        private void InitializeBlinkTimer()
-        {
-            blinkTimer = new Timer { Interval = 1000 };
-            blinkTimer.Tick += BlinkTimer_Tick;
-            blinkTimer.Start();
-        }
+        //private void InitializeBlinkTimer()
+        //{
+        //    blinkTimer = new Timer { Interval = 2000 };
+        //    blinkTimer.Tick += BlinkTimer_Tick;
+        //    blinkTimer.Start();
+        //}
 
         private void BlinkTimer_Tick(object sender, EventArgs e)
         {
@@ -124,7 +127,7 @@ namespace LocalMessenger
             rtbHistory.LinkClicked += rtbHistory_LinkClicked;
         }
 
- 
+
 
         private void rtbHistory_LinkClicked(object sender, LinkClickedEventArgs e)
         {
@@ -274,7 +277,7 @@ namespace LocalMessenger
         private void LogNetworkInterfaces()
         {
             var interfaces = NetworkInterface.GetAllNetworkInterfaces()
-                .Where(n => n.OperationalStatus == OperationalStatus.Up && 
+                .Where(n => n.OperationalStatus == OperationalStatus.Up &&
                            n.NetworkInterfaceType != NetworkInterfaceType.Loopback)
                 .ToList();
             Logger.Log("Available network interfaces:");
@@ -290,16 +293,18 @@ namespace LocalMessenger
 
         private void InitializeECDH()
         {
-            myECDH = new ECDiffieHellmanCng();
-            myECDH.KeyDerivationFunction = ECDiffieHellmanKeyDerivationFunction.Hash;
-            myECDH.HashAlgorithm = CngAlgorithm.Sha256;
+            myECDH = new ECDiffieHellmanCng
+            {
+                KeyDerivationFunction = ECDiffieHellmanKeyDerivationFunction.Hash,
+                HashAlgorithm = CngAlgorithm.Sha256
+            };
             Logger.Log("ECDH initialized with SHA256");
         }
 
         private static string GetLocalIPAddress()
         {
             var interfaces = NetworkInterface.GetAllNetworkInterfaces()
-                .Where(n => n.OperationalStatus == OperationalStatus.Up && 
+                .Where(n => n.OperationalStatus == OperationalStatus.Up &&
                            n.NetworkInterfaceType != NetworkInterfaceType.Loopback &&
                            !n.Name.ToLower().Contains("virtualbox") &&
                            !n.Name.ToLower().Contains("vmware") &&
@@ -378,59 +383,145 @@ namespace LocalMessenger
             }
         }
 
+        //private async void StartUdpListener()
+        //{
+        //    Logger.Log("Starting UDP listener on port 11000");
+        //    while (true)
+        //    {
+        //        try
+        //        {
+        //            var result = await udpListener.ReceiveAsync();
+        //            var message = Encoding.UTF8.GetString(result.Buffer);
+        //            var remoteIP = result.RemoteEndPoint.Address.ToString();
+        //            Logger.Log($"Received UDP message from {remoteIP}: {message}");
+
+        //            var parts = message.Split('|');
+        //            if (parts.Length == 5 && parts[0] == "HELLO")
+        //            {
+        //                var sender = parts[1];
+        //                var name = parts[2];
+        //                var status = parts[3];
+        //                var publicKey = Convert.FromBase64String(parts[4]);
+
+        //                if (sender != myLogin)
+        //                {
+        //                    contactPublicKeys[sender] = publicKey;
+        //                    contactIPs[sender] = remoteIP;
+        //                    var contactString = $"{sender} ({name}, {status})";
+        //                    var existingItem = lstContacts.Items.Cast<ListViewItem>().FirstOrDefault(i => i.Text.StartsWith(sender));
+        //                    if (existingItem != null)
+        //                    {
+        //                        existingItem.Text = contactString;
+        //                        Logger.Log($"Updated contact: {sender} (Name: {name}, Status: {status}, IP: {remoteIP})");
+        //                    }
+        //                    else
+        //                    {
+        //                        lstContacts.Items.Add(new ListViewItem(contactString));
+        //                        Logger.Log($"Added contact: {sender} (Name: {name}, Status: {status}, IP: {remoteIP})");
+        //                    }
+        //                }
+        //                else
+        //                {
+        //                    Logger.Log($"Ignored own HELLO message from {remoteIP}");
+        //                }
+        //            }
+        //            else
+        //            {
+        //                Logger.Log($"Invalid HELLO message format from {remoteIP}: {message}");
+        //            }
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            Logger.Log($"UDP listener error: {ex.Message}");
+        //        }
+        //    }
+        //}
+
+
+
         private async void StartUdpListener()
         {
             Logger.Log("Starting UDP listener on port 11000");
-            while (true)
+            try
             {
-                try
+                while (!cancellationTokenSource.Token.IsCancellationRequested)
                 {
-                    var result = await udpListener.ReceiveAsync();
-                    var message = Encoding.UTF8.GetString(result.Buffer);
-                    var remoteIP = result.RemoteEndPoint.Address.ToString();
-                    Logger.Log($"Received UDP message from {remoteIP}: {message}");
-
-                    var parts = message.Split('|');
-                    if (parts.Length == 5 && parts[0] == "HELLO")
+                    try
                     {
-                        var sender = parts[1];
-                        var name = parts[2];
-                        var status = parts[3];
-                        var publicKey = Convert.FromBase64String(parts[4]);
+                        var result = await Task.Run(() => udpListener.ReceiveAsync(), cancellationTokenSource.Token);
+                        var message = Encoding.UTF8.GetString(result.Buffer);
+                        var remoteIP = result.RemoteEndPoint.Address.ToString();
+                        Logger.Log($"Received UDP message from {remoteIP}: {message}");
 
-                        if (sender != myLogin)
+                        HandleUdpMessage(message, remoteIP);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        Logger.Log("UDP listener cancelled");
+                        break;
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        Logger.Log("UDP listener disposed");
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log($"UDP listener error: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Unexpected error in UDP listener: {ex.Message}");
+            }
+        }
+
+        private void HandleUdpMessage(string message, string remoteIP)
+        {
+            try
+            {
+                var parts = message.Split('|');
+                if (parts.Length == 5 && parts[0] == "HELLO")
+                {
+                    var sender = parts[1];
+                    var name = parts[2];
+                    var status = parts[3];
+                    var publicKey = Convert.FromBase64String(parts[4]);
+
+                    if (sender != myLogin)
+                    {
+                        contactPublicKeys[sender] = publicKey;
+                        contactIPs[sender] = remoteIP;
+                        var contactString = $"{sender} ({name}, {status})";
+                        var existingItem = lstContacts.Items.Cast<ListViewItem>().FirstOrDefault(i => i.Text.StartsWith(sender));
+                        if (existingItem != null)
                         {
-                            contactPublicKeys[sender] = publicKey;
-                            contactIPs[sender] = remoteIP;
-                            var contactString = $"{sender} ({name}, {status})";
-                            var existingItem = lstContacts.Items.Cast<ListViewItem>().FirstOrDefault(i => i.Text.StartsWith(sender));
-                            if (existingItem != null)
-                            {
-                                existingItem.Text = contactString;
-                                Logger.Log($"Updated contact: {sender} (Name: {name}, Status: {status}, IP: {remoteIP})");
-                            }
-                            else
-                            {
-                                lstContacts.Items.Add(new ListViewItem(contactString));
-                                Logger.Log($"Added contact: {sender} (Name: {name}, Status: {status}, IP: {remoteIP})");
-                            }
+                            existingItem.Text = contactString;
+                            Logger.Log($"Updated contact: {sender} (Name: {name}, Status: {status}, IP: {remoteIP})");
                         }
                         else
                         {
-                            Logger.Log($"Ignored own HELLO message from {remoteIP}");
+                            lstContacts.Items.Add(new ListViewItem(contactString));
+                            Logger.Log($"Added contact: {sender} (Name: {name}, Status: {status}, IP: {remoteIP})");
                         }
                     }
                     else
                     {
-                        Logger.Log($"Invalid HELLO message format from {remoteIP}: {message}");
+                        Logger.Log($"Ignored own HELLO message from {remoteIP}");
                     }
                 }
-                catch (Exception ex)
+                else
                 {
-                    Logger.Log($"UDP listener error: {ex.Message}");
+                    Logger.Log($"Invalid HELLO message format from {remoteIP}: {message}");
                 }
             }
+            catch (Exception ex)
+            {
+                Logger.Log($"Error parsing UDP message from {remoteIP}: {ex.Message}");
+            }
         }
+
 
         private byte[] GetMyPublicKey()
         {
@@ -1123,6 +1214,8 @@ namespace LocalMessenger
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
+            cancellationTokenSource.Cancel();
+
             SaveSettings();
             bufferManager?.SaveBuffer();
             if (udpListener != null)
@@ -1142,7 +1235,7 @@ namespace LocalMessenger
                 tcpListener.Stop();
                 Logger.Log("TCP listener stopped");
             }
-            blinkTimer?.Stop();
+            //blinkTimer?.Stop();
             Logger.Log("Application closing");
         }
 
@@ -1191,7 +1284,7 @@ namespace LocalMessenger
         private void btnDeleteAccount_Click(object sender, EventArgs e)
         {
             Logger.Log("Delete account initiated");
-            var result = MessageBox.Show("Are you sure you want to delete your account? This will remove all user settings.", 
+            var result = MessageBox.Show("Are you sure you want to delete your account? This will remove all user settings.",
                 "Confirm Deletion", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
             if (result == DialogResult.OK)
             {
