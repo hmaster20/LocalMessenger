@@ -47,15 +47,20 @@ namespace LocalMessenger
             this.lblIP = new System.Windows.Forms.Label();
             this.lblUserInfo = new System.Windows.Forms.Label();
             this.rtbHistory = new System.Windows.Forms.RichTextBox();
+            this.btnOpenSettings = new System.Windows.Forms.Button();
+            this.btnOpenLogFile = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // lstContacts
             // 
+            this.lstContacts.HideSelection = false;
             this.lstContacts.Location = new System.Drawing.Point(12, 12);
             this.lstContacts.Name = "lstContacts";
             this.lstContacts.Size = new System.Drawing.Size(150, 260);
             this.lstContacts.TabIndex = 0;
+            this.lstContacts.UseCompatibleStateImageBehavior = false;
             this.lstContacts.View = System.Windows.Forms.View.List;
+            this.lstContacts.DrawItem += new System.Windows.Forms.DrawListViewItemEventHandler(this.lstContacts_DrawItem);
             this.lstContacts.SelectedIndexChanged += new System.EventHandler(this.lstContacts_SelectedIndexChanged);
             // 
             // txtMessage
@@ -65,6 +70,7 @@ namespace LocalMessenger
             this.txtMessage.Name = "txtMessage";
             this.txtMessage.Size = new System.Drawing.Size(200, 24);
             this.txtMessage.TabIndex = 1;
+            this.txtMessage.KeyDown += new System.Windows.Forms.KeyEventHandler(this.txtMessage_KeyDown);
             // 
             // cmbStatus
             // 
@@ -86,7 +92,7 @@ namespace LocalMessenger
             // 
             // btnCreateGroup
             // 
-            this.btnCreateGroup.Location = new System.Drawing.Point(295, 222);
+            this.btnCreateGroup.Location = new System.Drawing.Point(168, 249);
             this.btnCreateGroup.Name = "btnCreateGroup";
             this.btnCreateGroup.Size = new System.Drawing.Size(100, 23);
             this.btnCreateGroup.TabIndex = 3;
@@ -115,7 +121,7 @@ namespace LocalMessenger
             // 
             // btnExit
             // 
-            this.btnExit.Location = new System.Drawing.Point(406, 246);
+            this.btnExit.Location = new System.Drawing.Point(761, 259);
             this.btnExit.Name = "btnExit";
             this.btnExit.Size = new System.Drawing.Size(68, 23);
             this.btnExit.TabIndex = 6;
@@ -124,18 +130,18 @@ namespace LocalMessenger
             // 
             // btnOpenSettingsFolder
             // 
-            this.btnOpenSettingsFolder.Location = new System.Drawing.Point(168, 246);
+            this.btnOpenSettingsFolder.Location = new System.Drawing.Point(708, 197);
             this.btnOpenSettingsFolder.Name = "btnOpenSettingsFolder";
             this.btnOpenSettingsFolder.Size = new System.Drawing.Size(121, 23);
             this.btnOpenSettingsFolder.TabIndex = 10;
-            this.btnOpenSettingsFolder.Text = "Open Settings Folder";
+            this.btnOpenSettingsFolder.Text = "Settings Folder";
             this.btnOpenSettingsFolder.Click += new System.EventHandler(this.btnOpenSettingsFolder_Click);
             // 
             // btnDeleteAccount
             // 
-            this.btnDeleteAccount.Location = new System.Drawing.Point(295, 246);
+            this.btnDeleteAccount.Location = new System.Drawing.Point(710, 12);
             this.btnDeleteAccount.Name = "btnDeleteAccount";
-            this.btnDeleteAccount.Size = new System.Drawing.Size(100, 23);
+            this.btnDeleteAccount.Size = new System.Drawing.Size(119, 23);
             this.btnDeleteAccount.TabIndex = 11;
             this.btnDeleteAccount.Text = "Delete Account";
             this.btnDeleteAccount.Click += new System.EventHandler(this.btnDeleteAccount_Click);
@@ -169,13 +175,32 @@ namespace LocalMessenger
             this.rtbHistory.Location = new System.Drawing.Point(168, 72);
             this.rtbHistory.Name = "rtbHistory";
             this.rtbHistory.ReadOnly = true;
-            this.rtbHistory.Size = new System.Drawing.Size(546, 118);
+            this.rtbHistory.Size = new System.Drawing.Size(661, 118);
             this.rtbHistory.TabIndex = 10;
             this.rtbHistory.Text = "";
             // 
+            // btnOpenSettings
+            // 
+            this.btnOpenSettings.Location = new System.Drawing.Point(708, 226);
+            this.btnOpenSettings.Name = "btnOpenSettings";
+            this.btnOpenSettings.Size = new System.Drawing.Size(121, 23);
+            this.btnOpenSettings.TabIndex = 10;
+            this.btnOpenSettings.Text = "Settings";
+            this.btnOpenSettings.Click += new System.EventHandler(this.btnViewLogs_Click);
+            // 
+            // btnOpenLogFile
+            // 
+            this.btnOpenLogFile.Location = new System.Drawing.Point(710, 42);
+            this.btnOpenLogFile.Name = "btnOpenLogFile";
+            this.btnOpenLogFile.Size = new System.Drawing.Size(119, 23);
+            this.btnOpenLogFile.TabIndex = 12;
+            this.btnOpenLogFile.Text = "Open LogFile";
+            this.btnOpenLogFile.UseVisualStyleBackColor = true;
+            // 
             // MainForm
             // 
-            this.ClientSize = new System.Drawing.Size(726, 279);
+            this.ClientSize = new System.Drawing.Size(841, 294);
+            this.Controls.Add(this.btnOpenLogFile);
             this.Controls.Add(this.lstContacts);
             this.Controls.Add(this.txtMessage);
             this.Controls.Add(this.cmbStatus);
@@ -183,6 +208,7 @@ namespace LocalMessenger
             this.Controls.Add(this.btnSend);
             this.Controls.Add(this.btnSendFile);
             this.Controls.Add(this.btnExit);
+            this.Controls.Add(this.btnOpenSettings);
             this.Controls.Add(this.btnOpenSettingsFolder);
             this.Controls.Add(this.btnDeleteAccount);
             this.Controls.Add(this.lblStatus);
@@ -195,6 +221,10 @@ namespace LocalMessenger
             this.Resize += new System.EventHandler(this.MainForm_Resize);
             this.ResumeLayout(false);
             this.PerformLayout();
+
         }
+
+        private System.Windows.Forms.Button btnOpenSettings;
+        private System.Windows.Forms.Button btnOpenLogFile;
     }
 }

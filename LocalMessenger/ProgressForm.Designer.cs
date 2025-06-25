@@ -1,4 +1,6 @@
-﻿namespace LocalMessenger
+﻿using System.Windows.Forms;
+
+namespace LocalMessenger
 {
     partial class ProgressForm
     {
@@ -6,6 +8,11 @@
         /// Required designer variable.
         /// </summary>
         private System.ComponentModel.IContainer components = null;
+
+        private ProgressBar progressBar;
+        private Label lblStatus;
+        private Label lblProgress;
+        private long totalSize;
 
         /// <summary>
         /// Clean up any resources being used.
@@ -29,9 +36,37 @@
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
+            this.Size = new System.Drawing.Size(400, 150);
+            this.Text = "File Transfer Progress";
+            this.FormBorderStyle = FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
+            this.StartPosition = FormStartPosition.CenterParent;
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(800, 450);
-            this.Text = "ProgressForm";
+
+            lblStatus = new Label
+            {
+                Text = "File: ",
+                Location = new System.Drawing.Point(10, 10),
+                Size = new System.Drawing.Size(360, 20)
+            };
+
+            progressBar = new ProgressBar
+            {
+                Location = new System.Drawing.Point(10, 40),
+                Size = new System.Drawing.Size(360, 20),
+                Minimum = 0,
+                Maximum = 100
+            };
+
+            lblProgress = new Label
+            {
+                Text = "0%",
+                Location = new System.Drawing.Point(10, 70),
+                Size = new System.Drawing.Size(360, 20)
+            };
+
+            this.Controls.AddRange(new Control[] { lblStatus, progressBar, lblProgress });
         }
 
         #endregion

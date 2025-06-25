@@ -124,22 +124,7 @@ namespace LocalMessenger
             rtbHistory.LinkClicked += rtbHistory_LinkClicked;
         }
 
-        private void lstContacts_DrawItem(object sender, DrawItemEventArgs e)
-        {
-            if (e.Index < 0) return;
-            var item = lstContacts.Items[e.Index];
-            var text = item.Text;
-            var login = text.Split(' ')[0];
-            var status = text.Contains("Online") ? "Online" : "Offline";
-            var isBlinking = blinkingContacts.Contains(login) && (DateTime.Now.Second % 2 == 0);
-            e.DrawBackground();
-            using (var brush = new SolidBrush(isBlinking ? Color.Yellow : e.ForeColor))
-            {
-                e.Graphics.DrawImage(statusIcons.Images[status], e.Bounds.Left, e.Bounds.Top);
-                e.Graphics.DrawString(text, e.Font, brush, e.Bounds.Left + 20, e.Bounds.Top);
-            }
-            e.DrawFocusRectangle();
-        }
+ 
 
         private void rtbHistory_LinkClicked(object sender, LinkClickedEventArgs e)
         {
@@ -154,7 +139,7 @@ namespace LocalMessenger
             }
         }
 
-        private void txtMessage_KeyDown(object sender, KeyEventArgs e)
+        private void txtMessage_ClickDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Enter && !string.IsNullOrWhiteSpace(txtMessage.Text))
             {
@@ -383,7 +368,7 @@ namespace LocalMessenger
                     var bytes = Encoding.UTF8.GetBytes(data);
                     await udpSender.SendAsync(bytes, bytes.Length, new IPEndPoint(IPAddress.Broadcast, 11000));
                     Logger.Log($"Sent HELLO broadcast from {myIP}: {data}");
-                    await Task.Delay(2000);
+                    await Task.Delay(15000);
                 }
                 catch (Exception ex)
                 {
@@ -506,7 +491,7 @@ namespace LocalMessenger
                     {
                         var sender = parts[1];
                         var contactPublicKey = Convert.FromBase64String(parts[2]);
-                        var sharedKey = myECDH.DeriveKeyMaterial(CngKey.Import(contactPublicKey));
+                        var sharedKey = myECDH.DeriveKeyMaterial(CngKey.Import(contactPublicKey, CngKeyBlobFormat.EccPublicBlob));
                         sharedKeys[sender] = sharedKey;
                         Logger.Log($"Shared key for {sender} is set");
                     }
@@ -720,18 +705,18 @@ namespace LocalMessenger
                 byte[] sharedKey = null;
                 string contactIP = contactIPs.ContainsKey(contactLogin) ? contactIPs[contactLogin] : contactLogin;
                 if (!sharedKeys.ContainsKey(contactLogin))
+                {
+                    Logger.Log($"No shared key found for {contactLogin}, attempting key exchange.");
+                    sharedKey = await ExchangeKeysWithContactAsync(contactIP);
+                    if (sharedKey == null)
                     {
-                        Logger.Log($"No shared key found for {contactLogin}, attempting key exchange.");
-                        sharedKey = await ExchangeKeysWithContactAsync(contactIP);
-                        if (sharedKey == null)
-                            {
-                            Logger.Log($"Failed to establish connection with {contactLogin} (IP: {contactIP})");
-                            MessageBox.Show($"Failed to establish connection with {contactLogin}");
-                            return;
-                            }
+                        Logger.Log($"Failed to establish connection with {contactLogin} (IP: {contactIP})");
+                        MessageBox.Show($"Failed to establish connection with {contactLogin}");
+                        return;
                     }
+                }
                 else
-                    {
+                {
                     sharedKey = sharedKeys[contactLogin];
                 }
 
@@ -1139,7 +1124,7 @@ namespace LocalMessenger
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
             SaveSettings();
-            bufferManager.SaveBuffer();
+            bufferManager?.SaveBuffer();
             if (udpListener != null)
             {
                 udpListener.Close();
@@ -1157,7 +1142,7 @@ namespace LocalMessenger
                 tcpListener.Stop();
                 Logger.Log("TCP listener stopped");
             }
-            blinkTimer.Stop();
+            blinkTimer?.Stop();
             Logger.Log("Application closing");
         }
 
@@ -1207,7 +1192,7 @@ namespace LocalMessenger
         {
             Logger.Log("Delete account initiated");
             var result = MessageBox.Show("Are you sure you want to delete your account? This will remove all user settings.", 
-                "Error", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
+                "Confirm Deletion", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
             if (result == DialogResult.OK)
             {
                 try
@@ -1224,10 +1209,10 @@ namespace LocalMessenger
                 catch (Exception ex)
                 {
                     Logger.Log($"Error deleting account: {ex.Message}");
-                    MessageBox.Show("Error deleting account: {ex.Message}");
-                }
+                    MessageBox.Show($"Error deleting account: {ex.Message}");
                 }
             }
+            else
             {
                 Logger.Log("Account deletion cancelled");
             }
@@ -1236,9 +1221,9 @@ namespace LocalMessenger
         private void btnViewLogs_Click(object sender, EventArgs e)
         {
             try
-                {
-                var logFile = Path.Combine(AppDataPath, "logs", new {log.txt}");
-                Process.Start("notepad.exe", new {logFile});
+            {
+                var logFile = Path.Combine(AppDataPath, "logs", "log.txt");
+                Process.Start("notepad.exe", logFile);
                 Logger.Log("Opened log file successfully");
             }
             catch (Exception ex)
@@ -1299,7 +1284,7 @@ namespace LocalMessenger
                 this.ShowInTaskbar = false;
                 notifyIcon.Visible = true;
                 notifyIcon.Text = "LocalMessenger";
-                notifyIcon.BalloonTipText = "LocalMessenger";
+                notifyIcon.BalloonTipText = "LocalMessenger is running in the background";
                 notifyIcon.BalloonTipTitle = "LocalMessenger";
                 notifyIcon.ShowBalloonTip(500);
                 Logger.Log("Application minimized to tray");
@@ -1364,6 +1349,28 @@ namespace LocalMessenger
             }
             Logger.Log("Generated group key");
             return key;
+        }
+
+        private void txtMessage_KeyDown(object sender, KeyEventArgs e)
+        {
+            btnSend_Click(sender, e);
+        }
+
+        private void lstContacts_DrawItem(object sender, DrawListViewItemEventArgs e)
+        {
+            if (e.ItemIndex < 0) return;
+            var item = lstContacts.Items[e.ItemIndex];
+            var text = item.Text;
+            var login = text.Split(' ')[0];
+            var status = text.Contains("Online") ? "Online" : "Offline";
+            var isBlinking = blinkingContacts.Contains(login) && (DateTime.Now.Second % 2 == 0);
+            e.DrawBackground();
+            using (var brush = new SolidBrush(isBlinking ? Color.Yellow : Color.Gray))
+            {
+                e.Graphics.DrawImage(statusIcons.Images[status], e.Bounds.Left, e.Bounds.Top);
+                e.Graphics.DrawString(text, new Font("Segoe UI Emoji", 10), brush, e.Bounds.Left + 20, e.Bounds.Top);
+            }
+            e.DrawFocusRectangle();
         }
     }
 }
