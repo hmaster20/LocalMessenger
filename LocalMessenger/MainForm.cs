@@ -43,6 +43,7 @@ namespace LocalMessenger
         private ImageList statusIcons;
 
         private CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+        private Dictionary<string, DateTime> lastHelloTimes = new Dictionary<string, DateTime>();
 
         public MainForm()
         {
@@ -438,6 +439,7 @@ namespace LocalMessenger
                     {
                         contactPublicKeys[sender] = publicKey;
                         contactIPs[sender] = remoteIP;
+                        lastHelloTimes[sender] = DateTime.Now;
                         var contactString = $"{sender} ({name}, {status})";
                         var existingItem = lstContacts.Items.Cast<ListViewItem>().FirstOrDefault(i => i.Text.StartsWith(sender));
                         if (existingItem != null)
@@ -466,6 +468,51 @@ namespace LocalMessenger
                 Logger.Log($"Error parsing UDP message from {remoteIP}: {ex.Message}");
             }
         }
+
+        //private void HandleUdpMessage(string message, string remoteIP)
+        //{
+        //    try
+        //    {
+        //        var parts = message.Split('|');
+        //        if (parts.Length == 5 && parts[0] == "HELLO")
+        //        {
+        //            var sender = parts[1];
+        //            var name = parts[2];
+        //            var status = parts[3];
+        //            var publicKey = Convert.FromBase64String(parts[4]);
+
+        //            if (sender != myLogin)
+        //            {
+        //                contactPublicKeys[sender] = publicKey;
+        //                contactIPs[sender] = remoteIP;
+        //                var contactString = $"{sender} ({name}, {status})";
+        //                var existingItem = lstContacts.Items.Cast<ListViewItem>().FirstOrDefault(i => i.Text.StartsWith(sender));
+        //                if (existingItem != null)
+        //                {
+        //                    existingItem.Text = contactString;
+        //                    Logger.Log($"Updated contact: {sender} (Name: {name}, Status: {status}, IP: {remoteIP})");
+        //                }
+        //                else
+        //                {
+        //                    lstContacts.Items.Add(new ListViewItem(contactString));
+        //                    Logger.Log($"Added contact: {sender} (Name: {name}, Status: {status}, IP: {remoteIP})");
+        //                }
+        //            }
+        //            else
+        //            {
+        //                Logger.Log($"Ignored own HELLO message from {remoteIP}");
+        //            }
+        //        }
+        //        else
+        //        {
+        //            Logger.Log($"Invalid HELLO message format from {remoteIP}: {message}");
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Logger.Log($"Error parsing UDP message from {remoteIP}: {ex.Message}");
+        //    }
+        //}
 
 
         private byte[] GetMyPublicKey()
@@ -617,8 +664,65 @@ namespace LocalMessenger
             }
         }
 
+
+
+
+        //private string Decrypt(byte[] cipherText, byte[] key, byte[] nonce, byte[] tag)
+        //{
+        //    using (Aes aes = Aes.Create())
+        //    {
+        //        aes.Key = key;
+        //        aes.IV = nonce;
+        //        aes.Mode = CipherMode.CBC;
+        //        aes.Padding = PaddingMode.PKCS7;
+
+        //        using (var decryptor = aes.CreateDecryptor())
+        //        {
+        //            var decryptedBytes = decryptor.TransformFinalBlock(cipherText, 0, cipherText.Length);
+        //            return Encoding.UTF8.GetString(decryptedBytes);
+        //        }
+        //    }
+        //}
+
+        //private byte[] Encrypt(string plainText, byte[] key, byte[] nonce)
+        //{
+        //    using (Aes aes = Aes.Create())
+        //    {
+        //        aes.Key = key;
+        //        aes.IV = nonce;
+        //        aes.Mode = CipherMode.CBC;
+        //        aes.Padding = PaddingMode.PKCS7;
+
+        //        using (var encryptor = aes.CreateEncryptor())
+        //        {
+        //            return encryptor.TransformFinalBlock(Encoding.UTF8.GetBytes(plainText), 0, plainText.Length);
+        //        }
+        //    }
+        //}
+
+        private byte[] Encrypt(string plainText, byte[] key, byte[] nonce)
+        {
+            Logger.Log($"Encrypting text: {plainText}");
+            using (Aes aes = Aes.Create())
+            {
+                aes.Key = key;
+                aes.IV = nonce;
+                aes.Mode = CipherMode.CBC;
+                aes.Padding = PaddingMode.PKCS7;
+
+                using (var encryptor = aes.CreateEncryptor())
+                {
+                    var plainBytes = Encoding.UTF8.GetBytes(plainText);
+                    var result = encryptor.TransformFinalBlock(plainBytes, 0, plainBytes.Length);
+                    Logger.Log($"Encrypted text length: {result.Length}");
+                    return result;
+                }
+            }
+        }
+
         private string Decrypt(byte[] cipherText, byte[] key, byte[] nonce, byte[] tag)
         {
+            Logger.Log($"Decrypting cipher text length: {cipherText.Length}");
             using (Aes aes = Aes.Create())
             {
                 aes.Key = key;
@@ -629,23 +733,9 @@ namespace LocalMessenger
                 using (var decryptor = aes.CreateDecryptor())
                 {
                     var decryptedBytes = decryptor.TransformFinalBlock(cipherText, 0, cipherText.Length);
-                    return Encoding.UTF8.GetString(decryptedBytes);
-                }
-            }
-        }
-
-        private byte[] Encrypt(string plainText, byte[] key, byte[] nonce)
-        {
-            using (Aes aes = Aes.Create())
-            {
-                aes.Key = key;
-                aes.IV = nonce;
-                aes.Mode = CipherMode.CBC;
-                aes.Padding = PaddingMode.PKCS7;
-
-                using (var encryptor = aes.CreateEncryptor())
-                {
-                    return encryptor.TransformFinalBlock(Encoding.UTF8.GetBytes(plainText), 0, plainText.Length);
+                    var result = Encoding.UTF8.GetString(decryptedBytes);
+                    Logger.Log($"Decrypted text: {result}");
+                    return result;
                 }
             }
         }
@@ -715,13 +805,38 @@ namespace LocalMessenger
             Logger.Log($"Displayed history for {contact}");
         }
 
+        //private void LoadAllHistories()
+        //{
+        //    foreach (var contact in contactIPs.Keys)
+        //    {
+        //        historyManager.LoadMessages(contact);
+        //    }
+        //    Logger.Log("All histories loaded");
+        //}
+
         private void LoadAllHistories()
         {
-            foreach (var contact in contactIPs.Keys)
+            var historyFiles = Directory.GetFiles(HistoryPath, "*.json");
+            var contactsWithHistory = new HashSet<string>();
+
+            foreach (var file in historyFiles)
             {
+                var contact = Path.GetFileNameWithoutExtension(file);
+                contactsWithHistory.Add(contact);
                 historyManager.LoadMessages(contact);
             }
-            Logger.Log("All histories loaded");
+
+            // Добавляем контакты с историей в lstContacts
+            foreach (var contact in contactsWithHistory)
+            {
+                if (contact != myLogin && !lstContacts.Items.Cast<ListViewItem>().Any(i => i.Text.StartsWith(contact)))
+                {
+                    lstContacts.Items.Add(new ListViewItem($"{contact} ({contact}, Offline)"));
+                    Logger.Log($"Added contact with history to lstContacts: {contact} (Offline)");
+                }
+            }
+
+            Logger.Log($"Loaded {contactsWithHistory.Count} histories");
         }
 
         private async void btnSend_Click(object sender, EventArgs e)
