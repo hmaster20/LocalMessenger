@@ -118,7 +118,7 @@ namespace LocalMessenger
 
         private void ConfigureControls()
         {
-            txtMessage.KeyDown += txtMessage_KeyDown;
+            //txtMessage.KeyDown += txtMessage_KeyDown;
             rtbHistory.WordWrap = true;
             rtbHistory.ScrollBars = RichTextBoxScrollBars.Vertical;
             rtbHistory.Font = new Font("Segoe UI Emoji", 10);
@@ -127,8 +127,6 @@ namespace LocalMessenger
             lstContacts.DrawItem += lstContacts_DrawItem;
             rtbHistory.LinkClicked += rtbHistory_LinkClicked;
         }
-
-
 
         private void rtbHistory_LinkClicked(object sender, LinkClickedEventArgs e)
         {
@@ -469,52 +467,6 @@ namespace LocalMessenger
             }
         }
 
-        //private void HandleUdpMessage(string message, string remoteIP)
-        //{
-        //    try
-        //    {
-        //        var parts = message.Split('|');
-        //        if (parts.Length == 5 && parts[0] == "HELLO")
-        //        {
-        //            var sender = parts[1];
-        //            var name = parts[2];
-        //            var status = parts[3];
-        //            var publicKey = Convert.FromBase64String(parts[4]);
-
-        //            if (sender != myLogin)
-        //            {
-        //                contactPublicKeys[sender] = publicKey;
-        //                contactIPs[sender] = remoteIP;
-        //                var contactString = $"{sender} ({name}, {status})";
-        //                var existingItem = lstContacts.Items.Cast<ListViewItem>().FirstOrDefault(i => i.Text.StartsWith(sender));
-        //                if (existingItem != null)
-        //                {
-        //                    existingItem.Text = contactString;
-        //                    Logger.Log($"Updated contact: {sender} (Name: {name}, Status: {status}, IP: {remoteIP})");
-        //                }
-        //                else
-        //                {
-        //                    lstContacts.Items.Add(new ListViewItem(contactString));
-        //                    Logger.Log($"Added contact: {sender} (Name: {name}, Status: {status}, IP: {remoteIP})");
-        //                }
-        //            }
-        //            else
-        //            {
-        //                Logger.Log($"Ignored own HELLO message from {remoteIP}");
-        //            }
-        //        }
-        //        else
-        //        {
-        //            Logger.Log($"Invalid HELLO message format from {remoteIP}: {message}");
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Logger.Log($"Error parsing UDP message from {remoteIP}: {ex.Message}");
-        //    }
-        //}
-
-
         private byte[] GetMyPublicKey()
         {
             return myECDH.PublicKey.ToByteArray();
@@ -664,42 +616,6 @@ namespace LocalMessenger
             }
         }
 
-
-
-
-        //private string Decrypt(byte[] cipherText, byte[] key, byte[] nonce, byte[] tag)
-        //{
-        //    using (Aes aes = Aes.Create())
-        //    {
-        //        aes.Key = key;
-        //        aes.IV = nonce;
-        //        aes.Mode = CipherMode.CBC;
-        //        aes.Padding = PaddingMode.PKCS7;
-
-        //        using (var decryptor = aes.CreateDecryptor())
-        //        {
-        //            var decryptedBytes = decryptor.TransformFinalBlock(cipherText, 0, cipherText.Length);
-        //            return Encoding.UTF8.GetString(decryptedBytes);
-        //        }
-        //    }
-        //}
-
-        //private byte[] Encrypt(string plainText, byte[] key, byte[] nonce)
-        //{
-        //    using (Aes aes = Aes.Create())
-        //    {
-        //        aes.Key = key;
-        //        aes.IV = nonce;
-        //        aes.Mode = CipherMode.CBC;
-        //        aes.Padding = PaddingMode.PKCS7;
-
-        //        using (var encryptor = aes.CreateEncryptor())
-        //        {
-        //            return encryptor.TransformFinalBlock(Encoding.UTF8.GetBytes(plainText), 0, plainText.Length);
-        //        }
-        //    }
-        //}
-
         private byte[] Encrypt(string plainText, byte[] key, byte[] nonce)
         {
             Logger.Log($"Encrypting text: {plainText}");
@@ -804,15 +720,6 @@ namespace LocalMessenger
             rtbHistory.ScrollToCaret();
             Logger.Log($"Displayed history for {contact}");
         }
-
-        //private void LoadAllHistories()
-        //{
-        //    foreach (var contact in contactIPs.Keys)
-        //    {
-        //        historyManager.LoadMessages(contact);
-        //    }
-        //    Logger.Log("All histories loaded");
-        //}
 
         private void LoadAllHistories()
         {
@@ -1422,28 +1329,6 @@ namespace LocalMessenger
             return key;
         }
 
-        //private void notifyIcon_DoubleClick(object sender, EventArgs e)
-        //{
-        //    this.WindowState = FormWindowState.Normal;
-        //    this.ShowInTaskbar = true;
-        //    notifyIcon.Visible = false;
-        //    Logger.Log("Notification icon double-clicked. Restored.");
-        //}
-
-        //private void MainForm_Resize(object sender, EventArgs e)
-       // {
-            //if (this.WindowState == FormWindowState.Minimized)
-            //{
-            //    this.ShowInTaskbar = false;
-            //    notifyIcon.Visible = true;
-            //    notifyIcon.Text = "LocalMessenger";
-            //    notifyIcon.BalloonTipText = "LocalMessenger is running in the background";
-            //    notifyIcon.BalloonTipTitle = "LocalMessenger";
-            //    notifyIcon.ShowBalloonTip(500);
-            //    Logger.Log("Application minimized to tray");
-            //}
-        //}
-
         private async void btnCreateGroup_Click(object sender, EventArgs e)
         {
             Logger.Log("Creating group");
@@ -1502,13 +1387,6 @@ namespace LocalMessenger
             }
             Logger.Log("Generated group key");
             return key;
-        }
-
-        private void txtMessage_KeyDown(object sender, KeyEventArgs e)
-        {
-
-
-            //btnSend_Click(sender, e);
         }
 
         private void txtMessage_KeyPress(object sender, KeyPressEventArgs e)
