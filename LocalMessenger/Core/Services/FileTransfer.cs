@@ -5,7 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LocalMessenger
+namespace LocalMessenger.Core.Services
 {
     public class FileTransfer
     {
@@ -51,21 +51,7 @@ namespace LocalMessenger
             }
         }
 
-        private byte[] Encrypt(byte[] data, int length, byte[] key, byte[] nonce)
-        {
-            using (Aes aes = Aes.Create())
-            {
-                aes.Key = key;
-                aes.IV = nonce;
-                aes.Mode = CipherMode.CBC;
-                aes.Padding = PaddingMode.PKCS7;
 
-                using (var encryptor = aes.CreateEncryptor())
-                {
-                    return encryptor.TransformFinalBlock(data, 0, length);
-                }
-            }
-        }
 
         public async Task ReceiveFile(TcpClient client)
         {
@@ -101,21 +87,7 @@ namespace LocalMessenger
             }
         }
 
-        private byte[] Decrypt(byte[] cipherText, int length, byte[] key, byte[] nonce)
-        {
-            using (Aes aes = Aes.Create())
-            {
-                aes.Key = key;
-                aes.IV = nonce;
-                aes.Mode = CipherMode.CBC;
-                aes.Padding = PaddingMode.PKCS7;
 
-                using (var decryptor = aes.CreateDecryptor())
-                {
-                    return decryptor.TransformFinalBlock(cipherText, 0, length);
-                }
-            }
-        }
 
 
 
@@ -124,16 +96,4 @@ namespace LocalMessenger
 
     }
 
-    //public static class SecurityHelper
-    //{
-    //    public static byte[] GenerateNonce()
-    //    {
-    //        var nonce = new byte[16]; // 128-bit nonce for AES
-    //        using (var rng = RandomNumberGenerator.Create())
-    //        {
-    //            rng.GetBytes(nonce);
-    //        }
-    //        return nonce;
-    //    }
-    //}
 }

@@ -9,19 +9,14 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace LocalMessenger
+namespace LocalMessenger.Core.Security
 {
     public static class SecurityHelper
     {
-        public static byte[] GenerateNonce()
-        {
-            var nonce = new byte[16]; // 128-bit nonce for AES
-            using (var rng = new RNGCryptoServiceProvider())
-            {
-                rng.GetBytes(nonce);
-            }
-            return nonce;
-        }
+
+
+
+
 
         public static byte[] DeriveSharedKey(ECDiffieHellmanCng myECDH, byte[] contactPublicKey)
         {

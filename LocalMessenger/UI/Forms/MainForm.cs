@@ -620,55 +620,11 @@ namespace LocalMessenger
             }
         }
 
-        private byte[] Encrypt(string plainText, byte[] key, byte[] nonce)
-        {
-            Logger.Log($"Encrypting text: {plainText}");
-            using (Aes aes = Aes.Create())
-            {
-                aes.Key = key;
-                aes.IV = nonce;
-                aes.Mode = CipherMode.CBC;
-                aes.Padding = PaddingMode.PKCS7;
 
-                using (var encryptor = aes.CreateEncryptor())
-                {
-                    var plainBytes = Encoding.UTF8.GetBytes(plainText);
-                    var result = encryptor.TransformFinalBlock(plainBytes, 0, plainBytes.Length);
-                    Logger.Log($"Encrypted text length: {result.Length}");
-                    return result;
-                }
-            }
-        }
 
-        private string Decrypt(byte[] cipherText, byte[] key, byte[] nonce, byte[] tag)
-        {
-            Logger.Log($"Decrypting cipher text length: {cipherText.Length}");
-            using (Aes aes = Aes.Create())
-            {
-                aes.Key = key;
-                aes.IV = nonce;
-                aes.Mode = CipherMode.CBC;
-                aes.Padding = PaddingMode.PKCS7;
 
-                using (var decryptor = aes.CreateDecryptor())
-                {
-                    var decryptedBytes = decryptor.TransformFinalBlock(cipherText, 0, cipherText.Length);
-                    var result = Encoding.UTF8.GetString(decryptedBytes);
-                    Logger.Log($"Decrypted text: {result}");
-                    return result;
-                }
-            }
-        }
 
-        private byte[] GenerateNonce()
-        {
-            var nonce = new byte[16];
-            using (var rng = new RNGCryptoServiceProvider())
-            {
-                rng.GetBytes(nonce);
-            }
-            return nonce;
-        }
+
 
         private void UpdateHistory(string contact, string content, MessageType type, bool isReceived)
         {

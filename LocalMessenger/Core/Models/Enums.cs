@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace LocalMessenger
+namespace LocalMessenger.Core.Models
 {
     /// <summary>
     /// Статусы пользователя

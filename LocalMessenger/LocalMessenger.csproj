@@ -53,46 +53,49 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Enums.cs" />
-    <Compile Include="FileTransfer.cs" />
-    <Compile Include="GroupCreationForm.cs">
+    <Compile Include="Core\Models\BufferedMessage.cs" />
+    <Compile Include="Core\Models\Enums.cs" />
+    <Compile Include="Core\Models\Message.cs" />
+    <Compile Include="Core\Security\CryptoUtils.cs" />
+    <Compile Include="Core\Services\FileTransfer.cs" />
+    <Compile Include="UI\Forms\GroupCreationForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="GroupCreationForm.Designer.cs">
+    <Compile Include="UI\Forms\GroupCreationForm.Designer.cs">
       <DependentUpon>GroupCreationForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="HistoryManager.cs" />
-    <Compile Include="Logger.cs" />
-    <Compile Include="MainForm.cs">
+    <Compile Include="Core\Services\HistoryManager.cs" />
+    <Compile Include="Utilities\Logger.cs" />
+    <Compile Include="UI\Forms\MainForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="MainForm.Designer.cs">
+    <Compile Include="UI\Forms\MainForm.Designer.cs">
       <DependentUpon>MainForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="MessageBufferManager.cs" />
+    <Compile Include="Core\Services\MessageBufferManager.cs" />
     <Compile Include="Program.cs" />
-    <Compile Include="ProgressForm.cs">
+    <Compile Include="UI\Forms\ProgressForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="ProgressForm.Designer.cs">
+    <Compile Include="UI\Forms\ProgressForm.Designer.cs">
       <DependentUpon>ProgressForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="RegistrationForm.cs">
+    <Compile Include="UI\Forms\RegistrationForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="RegistrationForm.Designer.cs">
+    <Compile Include="UI\Forms\RegistrationForm.Designer.cs">
       <DependentUpon>RegistrationForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="SecurityHelper.cs" />
-    <Compile Include="SettingsForm.cs">
+    <Compile Include="Core\Security\SecurityHelper.cs" />
+    <Compile Include="UI\Forms\SettingsForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="SettingsForm.Designer.cs">
+    <Compile Include="UI\Forms\SettingsForm.Designer.cs">
       <DependentUpon>SettingsForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="TrayIcon.cs" />
-    <EmbeddedResource Include="MainForm.resx">
+    <Compile Include="UI\Components\TrayIcon.cs" />
+    <EmbeddedResource Include="UI\Forms\MainForm.resx">
       <DependentUpon>MainForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
@@ -105,10 +108,10 @@
       <DependentUpon>Resources.resx</DependentUpon>
       <DesignTime>True</DesignTime>
     </Compile>
-    <EmbeddedResource Include="RegistrationForm.resx">
+    <EmbeddedResource Include="UI\Forms\RegistrationForm.resx">
       <DependentUpon>RegistrationForm.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="SettingsForm.resx">
+    <EmbeddedResource Include="UI\Forms\SettingsForm.resx">
       <DependentUpon>SettingsForm.cs</DependentUpon>
     </EmbeddedResource>
     <None Include="packages.config" />
@@ -129,6 +132,9 @@
     <None Include="LocalMessenger.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Network\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

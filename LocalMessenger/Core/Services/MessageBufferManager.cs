@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using LocalMessenger.Core.Models;
 using Newtonsoft.Json;
 
-namespace LocalMessenger
+namespace LocalMessenger.Core.Services
 {
     public class MessageBufferManager
     {
@@ -62,10 +63,5 @@ namespace LocalMessenger
         }
     }
 
-    public class BufferedMessage
-    {
-        public string ContactIP { get; set; }
-        public string Message { get; set; }
-        public DateTime Timestamp { get; set; }
-    }
+
 }

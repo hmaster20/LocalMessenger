@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using LocalMessenger.Core.Models;
 using Newtonsoft.Json;
 
-namespace LocalMessenger
+namespace LocalMessenger.Core.Services
 {
     public class HistoryManager
     {
@@ -118,11 +119,5 @@ namespace LocalMessenger
         }
     }
 
-    public class Message
-    {
-        public string Sender { get; set; }
-        public string Content { get; set; }
-        public MessageType Type { get; set; }
-        public DateTime Timestamp { get; set; } = DateTime.Now;
-    }
+
 }
