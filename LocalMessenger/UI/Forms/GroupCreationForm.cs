@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Windows.Forms;
 
-namespace LocalMessenger
+namespace LocalMessenger.UI.Forms
 {
     public partial class GroupCreationForm : Form
     {

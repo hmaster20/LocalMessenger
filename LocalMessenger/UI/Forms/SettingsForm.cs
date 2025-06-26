@@ -7,7 +7,7 @@ using System.Diagnostics;
 using System.Windows.Forms;
 using System.Threading.Tasks;
 
-namespace LocalMessenger
+namespace LocalMessenger.UI.Forms
 {
     public partial class SettingsForm : Form
     {

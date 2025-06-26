@@ -1,6 +1,6 @@
 ﻿using System.Drawing;
 
-namespace LocalMessenger
+namespace LocalMessenger.UI.Forms
 {
     partial class MainForm
     {
