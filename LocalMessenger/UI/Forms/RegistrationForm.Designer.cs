@@ -1,4 +1,4 @@
-﻿namespace LocalMessenger
+﻿namespace LocalMessenger.UI.Forms
 {
     partial class RegistrationForm
     {

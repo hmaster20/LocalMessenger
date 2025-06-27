@@ -58,6 +58,9 @@
     <Compile Include="Core\Models\Message.cs" />
     <Compile Include="Core\Security\CryptoUtils.cs" />
     <Compile Include="Core\Services\FileTransfer.cs" />
+    <Compile Include="Network\Interfaces\INetworkManager.cs" />
+    <Compile Include="Network\TCP\TcpServer.cs" />
+    <Compile Include="Network\UDP\UdpManager.cs" />
     <Compile Include="UI\Forms\GroupCreationForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -65,6 +68,7 @@
       <DependentUpon>GroupCreationForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Core\Services\HistoryManager.cs" />
+    <Compile Include="Utilities\Configuration.cs" />
     <Compile Include="Utilities\Logger.cs" />
     <Compile Include="UI\Forms\MainForm.cs">
       <SubType>Form</SubType>
@@ -132,9 +136,6 @@
     <None Include="LocalMessenger.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Network\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

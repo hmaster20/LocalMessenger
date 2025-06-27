@@ -1,8 +1,9 @@
-﻿using System;
+﻿using LocalMessenger.UI.Forms;
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace LocalMessenger
+namespace LocalMessenger.UI.Components
 {
     public class TrayIconManager
     {

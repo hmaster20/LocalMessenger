@@ -4,7 +4,7 @@ using System.IO;
 using LocalMessenger.Core.Models;
 using Newtonsoft.Json;
 
-namespace LocalMessenger.Core.Servi
+namespace LocalMessenger.Core.Services
 {
     public class MessageBufferManager
     {

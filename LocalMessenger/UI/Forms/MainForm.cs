@@ -1,4 +1,11 @@
-﻿using System;
+﻿using LocalMessenger.Core.Models;
+using LocalMessenger.Core.Security;
+using LocalMessenger.Core.Services;
+using LocalMessenger.Network.Tcp;
+using LocalMessenger.Network.Udp;
+using LocalMessenger.UI.Components;
+using LocalMessenger.Utilities;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -38,8 +45,10 @@ namespace LocalMessenger.UI.Forms
         private HistoryManager historyManager;
         private MessageBufferManager bufferManager;
         private byte[] encryptionKey;
+
         //private Timer blinkTimer;
         private HashSet<string> blinkingContacts = new HashSet<string>();
+
         private ImageList statusIcons;
         private Icon appIcon; // Поле для хранения иконки
 
@@ -154,10 +163,6 @@ namespace LocalMessenger.UI.Forms
             }
         }
 
-
-
-
-
         private void LoadSettings()
         {
             if (File.Exists(SettingsFile))
@@ -198,6 +203,26 @@ namespace LocalMessenger.UI.Forms
             {
                 Logger.Log("Settings file not found. Showing registration form.");
                 ShowRegistrationForm();
+            }
+        }
+
+        private void SaveSettings()
+        {
+            var settings = new Dictionary<string, string>
+            {
+                { "login", myLogin },
+                { "name", myName },
+                { "status", myStatus }
+            };
+            try
+            {
+                File.WriteAllText(SettingsFile, Newtonsoft.Json.JsonConvert.SerializeObject(settings));
+                Logger.Log("Settings saved successfully");
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Error saving settings: {ex.Message}");
+                MessageBox.Show($"Error saving settings: {ex.Message}");
             }
         }
 
@@ -352,7 +377,6 @@ namespace LocalMessenger.UI.Forms
             }
         }
 
-
         private void HandleUdpMessage(string message, string remoteIP)
         {
             try
@@ -404,13 +428,6 @@ namespace LocalMessenger.UI.Forms
             return myECDH.PublicKey.ToByteArray();
         }
 
-
-
-
-
-
-
-
         private void UpdateHistory(string contact, string content, MessageType type, bool isReceived)
         {
             var msg = new Message
@@ -446,6 +463,7 @@ namespace LocalMessenger.UI.Forms
                     case MessageType.Text:
                         rtbHistory.AppendText(prefix + msg.Content + Environment.NewLine);
                         break;
+
                     case MessageType.File:
                         rtbHistory.AppendText(prefix + $"[File] {Path.GetFileName(msg.Content)}" + Environment.NewLine);
                         rtbHistory.SelectionStart = rtbHistory.TextLength - Path.GetFileName(msg.Content).Length - 1;
@@ -453,6 +471,7 @@ namespace LocalMessenger.UI.Forms
                         rtbHistory.SelectionColor = Color.Blue;
                         rtbHistory.SelectionFont = new Font(rtbHistory.Font, FontStyle.Underline);
                         break;
+
                     case MessageType.Image:
                         rtbHistory.AppendText(prefix + $"[Image] {Path.GetFileName(msg.Content)}" + Environment.NewLine);
                         rtbHistory.SelectionStart = rtbHistory.TextLength - Path.GetFileName(msg.Content).Length - 1;
@@ -951,26 +970,6 @@ namespace LocalMessenger.UI.Forms
             Logger.Log("Application closing");
         }
 
-        private void SaveSettings()
-        {
-            var settings = new Dictionary<string, string>
-            {
-                { "login", myLogin },
-                { "name", myName },
-                { "status", myStatus }
-            };
-            try
-            {
-                File.WriteAllText(SettingsFile, Newtonsoft.Json.JsonConvert.SerializeObject(settings));
-                Logger.Log("Settings saved successfully");
-            }
-            catch (Exception ex)
-            {
-                Logger.Log($"Error saving settings: {ex.Message}");
-                MessageBox.Show($"Error saving settings: {ex.Message}");
-            }
-        }
-
         private void btnExit_Click(object sender, EventArgs e)
         {
             Logger.Log("Exit button clicked");
@@ -1159,6 +1158,5 @@ namespace LocalMessenger.UI.Forms
             }
             e.DrawFocusRectangle();
         }
-
     }
 }
