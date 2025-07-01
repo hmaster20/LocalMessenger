@@ -141,6 +141,9 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <None Include="LocalMessenger.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <Content Include="Resources\offline.png" />
     <Content Include="Resources\online.png" />
   </ItemGroup>

@@ -33,9 +33,9 @@ namespace LocalMessenger.UI.Forms
         private readonly HistoryManager _historyManager;
         private readonly MessageBufferManager _bufferManager;
         private readonly FileTransfer _fileTransfer;
-        private readonly UdpManager _udpManager;
-        private readonly TcpServer _tcpServer;
-        private readonly ECDiffieHellmanCng _myECDH;
+        private UdpManager _udpManager;
+        private TcpServer _tcpServer;
+        private ECDiffieHellmanCng _myECDH;
         private readonly Dictionary<string, byte[]> _contactPublicKeys;
         private readonly Dictionary<string, byte[]> _sharedKeys;
         private readonly Dictionary<string, string> _contactIPs;
@@ -44,8 +44,8 @@ namespace LocalMessenger.UI.Forms
         private readonly ImageList _statusIcons;
         private readonly Icon _appIcon;
         private readonly CancellationTokenSource _cancellationTokenSource;
-        private string _myLogin;
-        private string _myName;
+        private string _myLogin { get; set; }
+        private string _myName { get; set; }
         private string _myStatus = "Online";
         private string _myIP;
         private byte[] _encryptionKey;
@@ -391,14 +391,32 @@ namespace LocalMessenger.UI.Forms
         //    }
         //}
 
+        //private void InitializeECDH()
+        //{
+        //    _myECDH = new ECDiffieHellmanCng
+        //    {
+        //        KeyDerivationFunction = ECDiffieHellmanKeyDerivationFunction.Hash,
+        //        HashAlgorithm = CngAlgorithm.Sha256
+        //    };
+        //    Logger.Log("ECDH initialized with SHA256");
+        //}
+
         private void InitializeECDH()
         {
-            _myECDH = new ECDiffieHellmanCng
+            try
             {
-                KeyDerivationFunction = ECDiffieHellmanKeyDerivationFunction.Hash,
-                HashAlgorithm = CngAlgorithm.Sha256
-            };
-            Logger.Log("ECDH initialized with SHA256");
+                _myECDH = new ECDiffieHellmanCng
+                {
+                    KeyDerivationFunction = ECDiffieHellmanKeyDerivationFunction.Hash,
+                    HashAlgorithm = CngAlgorithm.Sha256
+                };
+                Logger.Log("ECDH initialized with SHA256");
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Error initializing ECDH: {ex.Message}");
+                throw;
+            }
         }
 
         private string GetLocalIPAddress()
@@ -695,7 +713,7 @@ namespace LocalMessenger.UI.Forms
                     }
                     else
                     {
-                        sent = await _fileTransfer.SendLargeFileAsync(contactIP, messagePrefix, fileName, fileSize, cachedFilePath, sharedKey);
+                        sent = await _fileTransfer.SendLargeFileAsync(contactIP, messagePrefix, fileName, fileSize, cachedFilePath, sharedKey, _myLogin);
                     }
 
                     if (sent)
@@ -849,7 +867,7 @@ namespace LocalMessenger.UI.Forms
 
         private async void TrySendBufferedMessagesAsync()
         {
-            var messages = _bufferManager.GetBufferedMessages();
+            var messages = _bufferManager.GetBuffer();
             Logger.Log($"Attempting to send {messages.Count} buffered messages");
             foreach (var msg in messages)
             {
@@ -951,30 +969,58 @@ namespace LocalMessenger.UI.Forms
         }
 
 
+        //private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
+        //{
+        //    _cancellationTokenSource.Cancel();
+
+        //    SaveSettings();
+        //    _bufferManager?.SaveBuffer();
+        //    if (udpListener != null)
+        //    {
+        //        udpListener.Close();
+        //        udpListener.Dispose();
+        //        Logger.Log("UDP listener closed");
+        //    }
+        //    if (udpSender != null)
+        //    {
+        //        udpSender.Close();
+        //        udpSender.Dispose();
+        //        Logger.Log("UDP sender closed");
+        //    }
+        //    if (tcpListener != null)
+        //    {
+        //        tcpListener.Stop();
+        //        Logger.Log("TCP listener stopped");
+        //    }
+        //    //blinkTimer?.Stop();
+        //    Logger.Log("Application closing");
+        //}
+
+        private void DisposeECDH()
+        {
+            if (_myECDH != null)
+            {
+                _myECDH.Clear();
+                _myECDH.Dispose();
+                _myECDH = null;
+                Logger.Log("ECDH keys cleared and disposed");
+            }
+        }
+
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
+            if (_udpManager == null || _tcpServer == null)
+            {
+                Logger.Log("Failed to initialize network components.");
+                MessageBox.Show("Failed to initialize network components.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
             _cancellationTokenSource.Cancel();
-
+            _udpManager.Dispose();
+            _tcpServer.Stop();
             SaveSettings();
             _bufferManager?.SaveBuffer();
-            if (udpListener != null)
-            {
-                udpListener.Close();
-                udpListener.Dispose();
-                Logger.Log("UDP listener closed");
-            }
-            if (udpSender != null)
-            {
-                udpSender.Close();
-                udpSender.Dispose();
-                Logger.Log("UDP sender closed");
-            }
-            if (tcpListener != null)
-            {
-                tcpListener.Stop();
-                Logger.Log("TCP listener stopped");
-            }
-            //blinkTimer?.Stop();
+            DisposeECDH();
             Logger.Log("Application closing");
         }
 
@@ -986,12 +1032,56 @@ namespace LocalMessenger.UI.Forms
             Application.Exit();
         }
 
+        //private void btnOpenSettingsFolder_Click(object sender, EventArgs e)
+        //{
+        //    try
+        //    {
+        //        Logger.Log("Opening settings folder");
+        //        Process.Start("explorer.exe", AppDataPath);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Logger.Log($"Error opening settings folder: {ex.Message}");
+        //        MessageBox.Show($"Error opening settings folder: {ex.Message}");
+        //    }
+        //}
+
+        //private void btnDeleteAccount_Click(object sender, EventArgs e)
+        //{
+        //    Logger.Log("Delete account initiated");
+        //    var result = MessageBox.Show("Are you sure you want to delete your account? This will remove all user settings.",
+        //        "Confirm Deletion", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
+        //    if (result == DialogResult.OK)
+        //    {
+        //        try
+        //        {
+        //            if (File.Exists(SettingsFile))
+        //            {
+        //                File.Delete(SettingsFile);
+        //                Logger.Log("Account settings deleted successfully");
+        //            }
+        //            Logger.Log("Account deletion confirmed");
+        //            MessageBox.Show("Account deleted successfully");
+        //            Application.Exit();
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            Logger.Log($"Error deleting account: {ex.Message}");
+        //            MessageBox.Show($"Error deleting account: {ex.Message}");
+        //        }
+        //    }
+        //    else
+        //    {
+        //        Logger.Log("Account deletion cancelled");
+        //    }
+        //}
+
         private void btnOpenSettingsFolder_Click(object sender, EventArgs e)
         {
             try
             {
                 Logger.Log("Opening settings folder");
-                Process.Start("explorer.exe", AppDataPath);
+                Process.Start("explorer.exe", Configuration.AppDataPath);
             }
             catch (Exception ex)
             {
@@ -1009,9 +1099,9 @@ namespace LocalMessenger.UI.Forms
             {
                 try
                 {
-                    if (File.Exists(SettingsFile))
+                    if (File.Exists(Configuration.SettingsFile))
                     {
-                        File.Delete(SettingsFile);
+                        File.Delete(Configuration.SettingsFile);
                         Logger.Log("Account settings deleted successfully");
                     }
                     Logger.Log("Account deletion confirmed");
@@ -1030,11 +1120,34 @@ namespace LocalMessenger.UI.Forms
             }
         }
 
+        //private void btnViewLogs_Click(object sender, EventArgs e)
+        //{
+        //    try
+        //    {
+        //        var logFile = Path.Combine(AppDataPath, "logs", "log.txt");
+        //        Process.Start("notepad.exe", logFile);
+        //        Logger.Log("Opened log file successfully");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Logger.Log($"Error opening log file: {ex.Message}");
+        //        MessageBox.Show($"Failed to open log file: {ex.Message}");
+        //    }
+        //}
+
         private void btnViewLogs_Click(object sender, EventArgs e)
         {
             try
             {
-                var logFile = Path.Combine(AppDataPath, "logs", "log.txt");
+                var logDir = Path.Combine(Configuration.AppDataPath, "logs");
+                Directory.CreateDirectory(logDir);
+                var logFile = Path.Combine(Configuration.AppDataPath, "logs", "log.txt");
+                if (!File.Exists(logFile))
+                {
+                    Logger.Log($"Log file does not exist: {logFile}");
+                    MessageBox.Show("Log file does not exist.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
                 Process.Start("notepad.exe", logFile);
                 Logger.Log("Opened log file successfully");
             }
@@ -1091,11 +1204,25 @@ namespace LocalMessenger.UI.Forms
                         // Перезапускаем сетевые компоненты
                         _udpManager.Dispose();
                         _tcpServer.Stop();
-                        _udpManager = new UdpManager(_myIP, _myLogin, _myName, _myStatus, GetMyPublicKey, HandleUdpMessage);
-                        _tcpServer = new TcpServer(HandleKeyExchange, HandleMessage, HandleFile);
-                        Task.Run(() => _udpManager.StartBroadcastAsync(), _cancellationTokenSource.Token);
-                        Task.Run(() => _udpManager.StartListenerAsync(), _cancellationTokenSource.Token);
-                        Task.Run(() => _tcpServer.StartAsync(), _cancellationTokenSource.Token);
+                        //_udpManager = new UdpManager(_myIP, _myLogin, _myName, _myStatus, GetMyPublicKey, HandleUdpMessage);
+                        //_tcpServer = new TcpServer(HandleKeyExchange, HandleMessage, HandleFile);
+                        //Task.Run(() => _udpManager.StartBroadcastAsync(), _cancellationTokenSource.Token);
+                        //Task.Run(() => _udpManager.StartListenerAsync(), _cancellationTokenSource.Token);
+                        //Task.Run(() => _tcpServer.StartAsync(), _cancellationTokenSource.Token);
+
+                        try
+                        {
+                            _udpManager = new UdpManager(_myIP, _myLogin, _myName, _myStatus, GetMyPublicKey, HandleUdpMessage);
+                            _tcpServer = new TcpServer(HandleKeyExchange, HandleMessage, HandleFile);
+                            Task.Run(() => _udpManager.StartBroadcastAsync(), _cancellationTokenSource.Token);
+                            Task.Run(() => _udpManager.StartListenerAsync(), _cancellationTokenSource.Token);
+                            Task.Run(() => _tcpServer.StartAsync(), _cancellationTokenSource.Token);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Log($"Error reinitializing network: {ex.Message}");
+                            MessageBox.Show($"Failed to reinitialize network: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
                         Logger.Log($"Network reinitialized with IP: {_myIP}");
                     }
                 }
@@ -1201,20 +1328,20 @@ namespace LocalMessenger.UI.Forms
             e.DrawFocusRectangle();
         }
 
-            //private void lstContacts_DrawItem(object sender, DrawItemEventArgs e)
-            //{
-            //    if (e.Index < 0) return;
-            //    var item = lstContacts.Items[e.Index];
-            //    var isSelected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
-            //    var isBlinking = _blinkingContacts.Contains(item.Text.Split(' ')[0]);
-            //    var backColor = isSelected ? SystemColors.Highlight : (isBlinking ? Color.Yellow : Color.White);
-            //    e.Graphics.FillRectangle(new SolidBrush(backColor), e.Bounds);
-            //    var icon = _statusIcons.Images[item.ImageKey];
-            //    e.Graphics.DrawImage(icon, e.Bounds.Left, e.Bounds.Top);
-            //    var textBounds = new Rectangle(e.Bounds.Left + 20, e.Bounds.Top, e.Bounds.Width - 20, e.Bounds.Height);
-            //    e.Graphics.DrawString(item.Text, lstContacts.Font, Brushes.Black, textBounds);
-            //    e.DrawFocusRectangle();
-            //}
+        //private void lstContacts_DrawItem(object sender, DrawItemEventArgs e)
+        //{
+        //    if (e.Index < 0) return;
+        //    var item = lstContacts.Items[e.Index];
+        //    var isSelected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+        //    var isBlinking = _blinkingContacts.Contains(item.Text.Split(' ')[0]);
+        //    var backColor = isSelected ? SystemColors.Highlight : (isBlinking ? Color.Yellow : Color.White);
+        //    e.Graphics.FillRectangle(new SolidBrush(backColor), e.Bounds);
+        //    var icon = _statusIcons.Images[item.ImageKey];
+        //    e.Graphics.DrawImage(icon, e.Bounds.Left, e.Bounds.Top);
+        //    var textBounds = new Rectangle(e.Bounds.Left + 20, e.Bounds.Top, e.Bounds.Width - 20, e.Bounds.Height);
+        //    e.Graphics.DrawString(item.Text, lstContacts.Font, Brushes.Black, textBounds);
+        //    e.DrawFocusRectangle();
+        //}
 
         //    private async void SendStatusUpdateBroadcast()
         //{
@@ -1232,14 +1359,29 @@ namespace LocalMessenger.UI.Forms
         //    }
         //}
 
+        //private async void SendStatusUpdateBroadcast()
+        //{
+        //    try
+        //    {
+        //        var publicKey = GetMyPublicKey();
+        //        var data = $"HELLO|{_myLogin}|{_myName}|{_myStatus}|{Convert.ToBase64String(publicKey)}";
+        //        var bytes = Encoding.UTF8.GetBytes(data);
+        //        await _udpManager.SendAsync(bytes, bytes.Length, new IPEndPoint(IPAddress.Broadcast, 11000)); // Доступ к udpSender через _udpManager
+        //        Logger.Log($"Sent immediate HELLO broadcast with updated status: {data}");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Logger.Log($"Error sending status update broadcast: {ex.Message}");
+        //    }
+        //}
+
         private async void SendStatusUpdateBroadcast()
         {
             try
             {
                 var publicKey = GetMyPublicKey();
                 var data = $"HELLO|{_myLogin}|{_myName}|{_myStatus}|{Convert.ToBase64String(publicKey)}";
-                var bytes = Encoding.UTF8.GetBytes(data);
-                await _udpManager.SendAsync(bytes, bytes.Length, new IPEndPoint(IPAddress.Broadcast, 11000)); // Доступ к udpSender через _udpManager
+                await _udpManager.SendBroadcastAsync(data);
                 Logger.Log($"Sent immediate HELLO broadcast with updated status: {data}");
             }
             catch (Exception ex)
