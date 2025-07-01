@@ -7,8 +7,23 @@ using LocalMessenger.Utilities;
 
 namespace LocalMessenger.Network.Udp
 {
-    public class UdpManager
+    public class UdpManager : IDisposable
     {
+        private bool disposed = false;
+
+        public void Dispose()
+        {
+            if (!disposed)
+            {
+                udpListener?.Close();
+                udpListener?.Dispose();
+                udpSender?.Close();
+                udpSender?.Dispose();
+                Logger.Log("UdpManager resources disposed");
+                disposed = true;
+            }
+        }
+
         private readonly UdpClient udpListener;
         private readonly UdpClient udpSender;
         private readonly string myIP;
@@ -54,6 +69,7 @@ namespace LocalMessenger.Network.Udp
             }
         }
 
+
         public async Task StartListenerAsync()
         {
             try
@@ -71,6 +87,13 @@ namespace LocalMessenger.Network.Udp
             {
                 Logger.Log($"UDP listener error: {ex.Message}");
             }
+        }
+
+        public async Task SendBroadcastAsync(string data)
+        {
+            var bytes = Encoding.UTF8.GetBytes(data);
+            await udpSender.SendAsync(bytes, bytes.Length, new IPEndPoint(IPAddress.Broadcast, 11000));
+            Logger.Log($"Sent broadcast: {data}");
         }
 
         #region MainForm

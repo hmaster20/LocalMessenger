@@ -95,7 +95,7 @@ namespace LocalMessenger.UI.Forms
             this.btnCreateGroup.Size = new System.Drawing.Size(100, 23);
             this.btnCreateGroup.TabIndex = 3;
             this.btnCreateGroup.Text = "Create Group";
-            this.btnCreateGroup.Click += new System.EventHandler(this.btnCreateGroup_Click);
+            //this.btnCreateGroup.Click += new System.EventHandler(this.btnCreateGroup_Click);
             // 
             // btnSend
             // 

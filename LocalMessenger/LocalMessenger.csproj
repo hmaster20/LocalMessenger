@@ -34,7 +34,8 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup>
-    <ApplicationIcon>LocalMessenger.ico</ApplicationIcon>
+    <ApplicationIcon>
+    </ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
@@ -69,6 +70,7 @@
     </Compile>
     <Compile Include="Core\Services\HistoryManager.cs" />
     <Compile Include="Utilities\Configuration.cs" />
+    <Compile Include="Utilities\ErrorHandler.cs" />
     <Compile Include="Utilities\Logger.cs" />
     <Compile Include="UI\Forms\MainForm.cs">
       <SubType>Form</SubType>
@@ -132,10 +134,15 @@
   <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
+  <ItemGroup />
   <ItemGroup>
-    <None Include="LocalMessenger.ico">
+    <None Include="Resources\LocalMessenger.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Resources\offline.png" />
+    <Content Include="Resources\online.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
