@@ -183,16 +183,6 @@ namespace LocalMessenger.Core.Services
             }
         }
 
-        private byte[] GenerateNonce()
-        {
-            var nonce = new byte[16];
-            using (var rng = new RNGCryptoServiceProvider())
-            {
-                rng.GetBytes(nonce);
-            }
-            return nonce;
-        }
-
         private byte[] EncryptChunk(byte[] data, int length, byte[] key, byte[] nonce)
         {
             using (var aes = Aes.Create())
