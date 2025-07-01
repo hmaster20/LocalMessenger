@@ -846,25 +846,6 @@ namespace LocalMessenger.UI.Forms
             }
         }
 
-        //private byte[] EncryptChunk(byte[] data, int length, byte[] key, byte[] nonce)
-        //{
-        //    using (var aes = Aes.Create())
-        //    {
-        //        aes.Key = key;
-        //        aes.IV = nonce;
-        //        aes.Mode = CipherMode.CBC;
-        //        aes.Padding = PaddingMode.PKCS7;
-
-        //        using (var ms = new MemoryStream())
-        //        using (var cs = new CryptoStream(ms, aes.CreateEncryptor(), CryptoStreamMode.Write))
-        //        {
-        //            cs.Write(data, 0, length);
-        //            cs.FlushFinalBlock();
-        //            return ms.ToArray();
-        //        }
-        //    }
-        //}
-
         //private async Task ReceiveLargeFileAsync(NetworkStream stream, string filePath, long fileSize, int chunkSize, byte[] sharedKey)
         //{
         //    using (var fs = File.Create(filePath))
@@ -1098,21 +1079,6 @@ namespace LocalMessenger.UI.Forms
                 Logger.Log("Account deletion cancelled");
             }
         }
-
-        //private void btnViewLogs_Click(object sender, EventArgs e)
-        //{
-        //    try
-        //    {
-        //        var logFile = Path.Combine(AppDataPath, "logs", "log.txt");
-        //        Process.Start("notepad.exe", logFile);
-        //        Logger.Log("Opened log file successfully");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Logger.Log($"Error opening log file: {ex.Message}");
-        //        MessageBox.Show($"Failed to open log file: {ex.Message}");
-        //    }
-        //}
 
         private void btnViewLogs_Click(object sender, EventArgs e)
         {
@@ -1361,55 +1327,6 @@ namespace LocalMessenger.UI.Forms
             _sharedKeys[sender] = sharedKey;
             Logger.Log($"Shared key established with {sender}");
         }
-
-        //private void HandleMessage(string sender, byte[] encryptedMessage, byte[] nonce, byte[] tag)
-        //{
-        //    var decrypted = CryptoUtils.Decrypt(encryptedMessage, _sharedKeys[sender], nonce);
-        //    _historyManager.SaveMessage(sender, new Message
-        //    {
-        //        Sender = sender,
-        //        Content = decrypted,
-        //        Type = MessageType.Text,
-        //        Timestamp = DateTime.Now
-        //    });
-        //    UpdateHistoryDisplay(sender);
-        //    if (lstContacts.SelectedItems.Count == 0 || !lstContacts.SelectedItems[0].Text.StartsWith(sender))
-        //    {
-        //        _blinkingContacts.Add(sender);
-        //        FlashTaskbar();
-        //        if (!this.Visible || this.WindowState == FormWindowState.Minimized)
-        //        {
-        //            notifyIcon.ShowBalloonTip(3000, "New Message", $"New message from {sender}", ToolTipIcon.Info);
-        //            Logger.Log($"Showed balloon tip for new message from {sender}");
-        //        }
-        //    }
-        //    Logger.Log($"Received message from {sender}: {decrypted}");
-        //}
-
-        //private void HandleFile(string sender, string fileName, long fileSize, string nonceBase64, bool isChunked)
-        //{
-        //    var messageType = new[] { ".jpg", ".png", ".gif" }.Contains(Path.GetExtension(fileName).ToLower()) ? MessageType.Image : MessageType.File;
-        //    var filePath = _fileTransfer.GenerateUniqueFilePath(fileName);
-        //    _historyManager.SaveMessage(sender, new Message
-        //    {
-        //        Sender = sender,
-        //        Content = filePath,
-        //        Type = messageType,
-        //        Timestamp = DateTime.Now
-        //    });
-        //    UpdateHistoryDisplay(sender);
-        //    if (lstContacts.SelectedItems.Count == 0 || !lstContacts.SelectedItems[0].Text.StartsWith(sender))
-        //    {
-        //        _blinkingContacts.Add(sender);
-        //        FlashTaskbar();
-        //        if (!this.Visible || this.WindowState == FormWindowState.Minimized)
-        //        {
-        //            notifyIcon.ShowBalloonTip(3000, "New File", $"New file from {sender}: {fileName}", ToolTipIcon.Info);
-        //            Logger.Log($"Showed balloon tip for new file from {sender}: {fileName}");
-        //        }
-        //    }
-        //    Logger.Log($"Received {messageType} from {sender}: {fileName} saved to {filePath}");
-        //}
 
         private void HandleMessage(string sender, byte[] encryptedMessage, byte[] nonce, byte[] tag)
         {
