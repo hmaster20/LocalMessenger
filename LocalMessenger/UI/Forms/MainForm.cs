@@ -5,7 +5,6 @@ using LocalMessenger.Network.Tcp;
 using LocalMessenger.Network.Udp;
 using LocalMessenger.UI.Components;
 using LocalMessenger.Utilities;
-using Message = LocalMessenger.Core.Models.Message;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -13,7 +12,6 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
@@ -22,6 +20,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Message = LocalMessenger.Core.Models.Message;
 
 namespace LocalMessenger.UI.Forms
 {
@@ -44,6 +43,10 @@ namespace LocalMessenger.UI.Forms
         private readonly ImageList _statusIcons;
         private readonly Icon _appIcon;
         private readonly CancellationTokenSource _cancellationTokenSource;
+
+        private readonly ToolStripStatusLabel _statusLabel = new ToolStripStatusLabel();
+        private readonly ToolStripProgressBar _progressBar = new ToolStripProgressBar();
+
         private string _myLogin { get; set; }
         private string _myName { get; set; }
         private string _myStatus = "Online";
@@ -55,6 +58,13 @@ namespace LocalMessenger.UI.Forms
             InitializeComponent();
             _appIcon = Properties.Resources.LocalMessenger;
             this.Icon = _appIcon;
+
+            var statusStrip = new StatusStrip();
+            _progressBar.Size = new Size(100, 16);
+            _progressBar.Visible = false;
+            statusStrip.Items.Add(_statusLabel);
+            statusStrip.Items.Add(_progressBar);
+            this.Controls.Add(statusStrip);
 
             _myIP = GetLocalIPAddress();
             _contactPublicKeys = new Dictionary<string, byte[]>();
@@ -125,7 +135,7 @@ namespace LocalMessenger.UI.Forms
         private void InitializeEmojiMenu()
         {
             var emojiMenu = new ContextMenuStrip();
-            var emojis = new[] { "😊", "😂", "😍", "😘", "🥰", "🐱", "👍", "🤝", 
+            var emojis = new[] { "😊", "😂", "😍", "😘", "🥰", "🐱", "👍", "🤝",
             "😢", "🥂", "🤗", "😳", "🤦🏻‍", "🎂", "🍻", "🍾", "🍽", "🚀", "🌟", "❤️"};
             foreach (var emoji in emojis)
             {
@@ -146,8 +156,6 @@ namespace LocalMessenger.UI.Forms
             rtbHistory.LinkClicked += rtbHistory_LinkClicked;
             Logger.Log("Controls configured with Segoe UI Emoji font for emoji support");
         }
-
-
 
         private void rtbHistory_LinkClicked(object sender, LinkClickedEventArgs e)
         {
@@ -330,7 +338,6 @@ namespace LocalMessenger.UI.Forms
         //        }
         //    }
         //}
-
 
         //   Будет использоваться отдельный метод из класса, на время тестирования отключаю
         //private void InitializeNetwork()
@@ -515,7 +522,6 @@ namespace LocalMessenger.UI.Forms
         //    Logger.Log($"Updated group history for {groupID}: {(isReceived ? "Received" : "Sent")} - {message}");
         //}
 
-
         private void UpdateHistoryDisplay(string contact)
         {
             rtbHistory.Clear();
@@ -534,6 +540,7 @@ namespace LocalMessenger.UI.Forms
                     case MessageType.Text:
                         rtbHistory.AppendText(prefix + msg.Content + Environment.NewLine);
                         break;
+
                     case MessageType.File:
                         rtbHistory.AppendText(prefix + $"[File] {Path.GetFileName(msg.Content)}" + Environment.NewLine);
                         rtbHistory.SelectionStart = rtbHistory.TextLength - Path.GetFileName(msg.Content).Length - 1;
@@ -541,6 +548,7 @@ namespace LocalMessenger.UI.Forms
                         rtbHistory.SelectionColor = Color.Blue;
                         rtbHistory.SelectionFont = new Font(rtbHistory.Font, FontStyle.Underline);
                         break;
+
                     case MessageType.Image:
                         rtbHistory.AppendText(prefix + $"[Image] {Path.GetFileName(msg.Content)}" + Environment.NewLine);
                         rtbHistory.SelectionStart = rtbHistory.TextLength - Path.GetFileName(msg.Content).Length - 1;
@@ -653,7 +661,6 @@ namespace LocalMessenger.UI.Forms
             }
         }
 
-
         private async void btnSendFile_Click(object sender, EventArgs e)
         {
             if (lstContacts.SelectedItems.Count == 0) return;
@@ -745,7 +752,6 @@ namespace LocalMessenger.UI.Forms
             }
         }
 
-
         private async Task<byte[]> ExchangeKeysWithContactAsync(string contactIP)
         {
             try
@@ -792,9 +798,6 @@ namespace LocalMessenger.UI.Forms
                 }
             }
         }
-
-
-
 
         //private byte[] EncryptChunk(byte[] data, int length, byte[] key, byte[] nonce)
         //{
@@ -951,7 +954,6 @@ namespace LocalMessenger.UI.Forms
             }
         }
 
-
         private void UpdateContactList()
         {
             for (int i = 0; i < lstContacts.Items.Count; i++)
@@ -968,34 +970,6 @@ namespace LocalMessenger.UI.Forms
             Logger.Log("Updated contact list with current user status");
         }
 
-
-        //private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
-        //{
-        //    _cancellationTokenSource.Cancel();
-
-        //    SaveSettings();
-        //    _bufferManager?.SaveBuffer();
-        //    if (udpListener != null)
-        //    {
-        //        udpListener.Close();
-        //        udpListener.Dispose();
-        //        Logger.Log("UDP listener closed");
-        //    }
-        //    if (udpSender != null)
-        //    {
-        //        udpSender.Close();
-        //        udpSender.Dispose();
-        //        Logger.Log("UDP sender closed");
-        //    }
-        //    if (tcpListener != null)
-        //    {
-        //        tcpListener.Stop();
-        //        Logger.Log("TCP listener stopped");
-        //    }
-        //    //blinkTimer?.Stop();
-        //    Logger.Log("Application closing");
-        //}
-
         private void DisposeECDH()
         {
             if (_myECDH != null)
@@ -1009,18 +983,19 @@ namespace LocalMessenger.UI.Forms
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
-            if (_udpManager == null || _tcpServer == null)
+            _cancellationTokenSource?.Cancel();
+            try
             {
-                Logger.Log("Failed to initialize network components.");
-                MessageBox.Show("Failed to initialize network components.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
+                _udpManager?.Dispose();
+                _tcpServer?.Stop();
+                _bufferManager?.SaveBuffer();
+                DisposeECDH();
+                SaveSettings();
             }
-            _cancellationTokenSource.Cancel();
-            _udpManager.Dispose();
-            _tcpServer.Stop();
-            SaveSettings();
-            _bufferManager?.SaveBuffer();
-            DisposeECDH();
+            catch (Exception ex)
+            {
+                Logger.Log($"Error during form closing: {ex.Message}");
+            }
             Logger.Log("Application closing");
         }
 
@@ -1031,50 +1006,6 @@ namespace LocalMessenger.UI.Forms
             _bufferManager.SaveBuffer();
             Application.Exit();
         }
-
-        //private void btnOpenSettingsFolder_Click(object sender, EventArgs e)
-        //{
-        //    try
-        //    {
-        //        Logger.Log("Opening settings folder");
-        //        Process.Start("explorer.exe", AppDataPath);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Logger.Log($"Error opening settings folder: {ex.Message}");
-        //        MessageBox.Show($"Error opening settings folder: {ex.Message}");
-        //    }
-        //}
-
-        //private void btnDeleteAccount_Click(object sender, EventArgs e)
-        //{
-        //    Logger.Log("Delete account initiated");
-        //    var result = MessageBox.Show("Are you sure you want to delete your account? This will remove all user settings.",
-        //        "Confirm Deletion", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
-        //    if (result == DialogResult.OK)
-        //    {
-        //        try
-        //        {
-        //            if (File.Exists(SettingsFile))
-        //            {
-        //                File.Delete(SettingsFile);
-        //                Logger.Log("Account settings deleted successfully");
-        //            }
-        //            Logger.Log("Account deletion confirmed");
-        //            MessageBox.Show("Account deleted successfully");
-        //            Application.Exit();
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            Logger.Log($"Error deleting account: {ex.Message}");
-        //            MessageBox.Show($"Error deleting account: {ex.Message}");
-        //        }
-        //    }
-        //    else
-        //    {
-        //        Logger.Log("Account deletion cancelled");
-        //    }
-        //}
 
         private void btnOpenSettingsFolder_Click(object sender, EventArgs e)
         {
@@ -1158,74 +1089,61 @@ namespace LocalMessenger.UI.Forms
             }
         }
 
-        //private void btnSettings_Click(object sender, EventArgs e)
-        //{
-        //    using (var form = new SettingsForm(myLogin, myName, AppDataPath))
-        //    {
-        //        if (form.ShowDialog() == DialogResult.OK)
-        //        {
-        //            if (myLogin != form.NewLogin || myName != form.NewName)
-        //            {
-        //                myLogin = form.NewLogin;
-        //                myName = form.NewName;
-        //                SaveSettings();
-        //                UpdateStatusAndIP();
-        //                UpdateContactList();
-        //                Logger.Log($"User settings updated: Login={myLogin}, Name={myName}");
-        //            }
-        //            if (form.SelectedIP != null && form.SelectedIP != myIP)
-        //            {
-        //                myIP = form.SelectedIP;
-        //                InitializeNetwork();
-        //                Logger.Log($"Network reinitialized with IP: {myIP}");
-        //            }
-        //        }
-        //    }
-        //}
 
         private void btnSettings_Click(object sender, EventArgs e)
         {
-            using (var form = new SettingsForm(_myLogin, _myName, Configuration.AppDataPath)) // Используем _myLogin, _myName
-            {
-                if (form.ShowDialog() == DialogResult.OK)
-                {
-                    if (_myLogin != form.NewLogin || _myName != form.NewName)
-                    {
-                        _myLogin = form.NewLogin;
-                        _myName = form.NewName;
-                        SaveSettings();
-                        UpdateStatusAndIP();
-                        UpdateContactList();
-                        Logger.Log($"User settings updated: Login={_myLogin}, Name={_myName}");
-                    }
-                    if (form.SelectedIP != null && form.SelectedIP != _myIP)
-                    {
-                        _myIP = form.SelectedIP;
-                        // Перезапускаем сетевые компоненты
-                        _udpManager.Dispose();
-                        _tcpServer.Stop();
-                        //_udpManager = new UdpManager(_myIP, _myLogin, _myName, _myStatus, GetMyPublicKey, HandleUdpMessage);
-                        //_tcpServer = new TcpServer(HandleKeyExchange, HandleMessage, HandleFile);
-                        //Task.Run(() => _udpManager.StartBroadcastAsync(), _cancellationTokenSource.Token);
-                        //Task.Run(() => _udpManager.StartListenerAsync(), _cancellationTokenSource.Token);
-                        //Task.Run(() => _tcpServer.StartAsync(), _cancellationTokenSource.Token);
+            btnOpenSettings.Enabled = false; // Отключаем кнопку для UX
+            _progressBar.Visible = true;
+            _progressBar.Style = ProgressBarStyle.Marquee;
+            try
 
-                        try
+            {
+                using (var form = new SettingsForm(_myLogin, _myName, Configuration.AppDataPath))
+                {
+                    if (form.ShowDialog() == DialogResult.OK)
+                    {
+                        if (_myLogin != form.NewLogin || _myName != form.NewName)
                         {
-                            _udpManager = new UdpManager(_myIP, _myLogin, _myName, _myStatus, GetMyPublicKey, HandleUdpMessage);
-                            _tcpServer = new TcpServer(HandleKeyExchange, HandleMessage, HandleFile);
-                            Task.Run(() => _udpManager.StartBroadcastAsync(), _cancellationTokenSource.Token);
-                            Task.Run(() => _udpManager.StartListenerAsync(), _cancellationTokenSource.Token);
-                            Task.Run(() => _tcpServer.StartAsync(), _cancellationTokenSource.Token);
+                            _myLogin = form.NewLogin;
+                            _myName = form.NewName;
+                            SaveSettings();
+                            UpdateStatusAndIP();
+                            UpdateContactList();
+                            Logger.Log($"User settings updated: Login={_myLogin}, Name={_myName}");
                         }
-                        catch (Exception ex)
+                        if (form.SelectedIP != null && form.SelectedIP != _myIP)
                         {
-                            Logger.Log($"Error reinitializing network: {ex.Message}");
-                            MessageBox.Show($"Failed to reinitialize network: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            _myIP = form.SelectedIP;
+                            _udpManager?.Dispose();
+                            _tcpServer?.Stop();
+                            try
+                            {
+                                _udpManager = new UdpManager(_myIP, _myLogin, _myName, _myStatus, GetMyPublicKey, HandleUdpMessage);
+                                _tcpServer = new TcpServer(HandleKeyExchange, HandleMessage, HandleFile);
+                                if (_udpManager == null || _tcpServer == null)
+                                {
+                                    Logger.Log("Failed to initialize network components.");
+                                    MessageBox.Show("Failed to initialize network components.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                    return;
+                                }
+                                Task.Run(() => _udpManager.StartBroadcastAsync(), _cancellationTokenSource.Token);
+                                Task.Run(() => _udpManager.StartListenerAsync(), _cancellationTokenSource.Token);
+                                Task.Run(() => _tcpServer.StartAsync(), _cancellationTokenSource.Token);
+                                Logger.Log($"Network reinitialized with IP: {_myIP}");
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger.Log($"Error reinitializing network: {ex.Message}");
+                                MessageBox.Show($"Failed to reinitialize network: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            }
                         }
-                        Logger.Log($"Network reinitialized with IP: {_myIP}");
                     }
                 }
+            }
+            finally
+            {
+                btnOpenSettings.Enabled = true; // Включаем кнопку обратно
+                _progressBar.Visible = false;
             }
         }
 
@@ -1309,7 +1227,6 @@ namespace LocalMessenger.UI.Forms
             //else if (e.KeyChar == (char)27)
             //    this.Close();
         }
-
 
         private void lstContacts_DrawItem(object sender, DrawListViewItemEventArgs e)
         {
@@ -1398,7 +1315,6 @@ namespace LocalMessenger.UI.Forms
             Logger.Log($"Shared key established with {sender}");
         }
 
-
         //private void HandleMessage(string sender, byte[] encryptedMessage, byte[] nonce, byte[] tag)
         //{
         //    var decrypted = CryptoUtils.Decrypt(encryptedMessage, _sharedKeys[sender], nonce);
@@ -1422,7 +1338,6 @@ namespace LocalMessenger.UI.Forms
         //    }
         //    Logger.Log($"Received message from {sender}: {decrypted}");
         //}
-
 
         //private void HandleFile(string sender, string fileName, long fileSize, string nonceBase64, bool isChunked)
         //{
@@ -1498,7 +1413,6 @@ namespace LocalMessenger.UI.Forms
             Logger.Log($"Received {messageType} from {sender}: {fileName} saved to {filePath}");
         }
 
-
         private void FlashTaskbar()
         {
             if (!this.Visible || this.WindowState == FormWindowState.Minimized)
@@ -1507,7 +1421,6 @@ namespace LocalMessenger.UI.Forms
                 Logger.Log("Taskbar flashed for new message");
             }
         }
-
 
         private async Task SendMessageAsync(string contactIP, string message)
         {
@@ -1529,15 +1442,11 @@ namespace LocalMessenger.UI.Forms
             }
         }
 
-        
-
-
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             base.OnFormClosing(e);
             _cancellationTokenSource.Cancel();
             Logger.Log("Application closing");
         }
-
     }
 }
