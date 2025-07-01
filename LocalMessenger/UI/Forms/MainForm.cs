@@ -21,6 +21,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Message = LocalMessenger.Core.Models.Message;
+using Timer = System.Windows.Forms.Timer;
 
 namespace LocalMessenger.UI.Forms
 {
@@ -47,6 +48,8 @@ namespace LocalMessenger.UI.Forms
         private readonly ToolStripStatusLabel _statusLabel = new ToolStripStatusLabel();
         private readonly ToolStripProgressBar _progressBar = new ToolStripProgressBar();
 
+        private readonly Timer _contactUpdateTimer;
+
         private string _myLogin { get; set; }
         private string _myName { get; set; }
         private string _myStatus = "Online";
@@ -65,6 +68,10 @@ namespace LocalMessenger.UI.Forms
             statusStrip.Items.Add(_statusLabel);
             statusStrip.Items.Add(_progressBar);
             this.Controls.Add(statusStrip);
+
+            _contactUpdateTimer = new Timer { Interval = 30000 }; // 30 секунд
+            _contactUpdateTimer.Tick += ContactUpdateTimer_Tick;
+            _contactUpdateTimer.Start();
 
             _myIP = GetLocalIPAddress();
             _contactPublicKeys = new Dictionary<string, byte[]>();
@@ -104,6 +111,26 @@ namespace LocalMessenger.UI.Forms
         //    blinkTimer.Tick += BlinkTimer_Tick;
         //    blinkTimer.Start();
         //}
+
+        private void ContactUpdateTimer_Tick(object sender, EventArgs e)
+        {
+            var now = DateTime.Now;
+            foreach (var contact in _lastHelloTimes.Keys.ToList())
+            {
+                if ((now - _lastHelloTimes[contact]).TotalSeconds > 60) // 60 секунд без HELLO
+                {
+                    var item = lstContacts.Items.Cast<ListViewItem>().FirstOrDefault(i => i.Text.StartsWith(contact));
+                    if (item != null)
+                    {
+                        item.Text = item.Text.Replace("Online", "Offline");
+                        item.ImageKey = "Offline";
+                        Logger.Log($"Contact {contact} marked as Offline due to timeout.");
+                    }
+                    _lastHelloTimes.Remove(contact);
+                }
+            }
+            lstContacts.Invalidate();
+        }
 
         private void BlinkTimer_Tick(object sender, EventArgs e)
         {
@@ -435,6 +462,12 @@ namespace LocalMessenger.UI.Forms
                 .Select(a => a.Address.ToString())
                 .ToList();
             var selectedIP = interfaces.FirstOrDefault();
+            if (selectedIP == null)
+            {
+                Logger.Log("No valid IPv4 address found.");
+                MessageBox.Show("No valid network interface found. Please check your network settings.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                throw new InvalidOperationException("No valid IPv4 address available.");
+            }
             Logger.Log($"Selected IP address: {selectedIP}");
             return selectedIP;
         }
@@ -455,7 +488,21 @@ namespace LocalMessenger.UI.Forms
                     var sender = parts[1];
                     var name = parts[2];
                     var status = parts[3];
-                    var publicKey = Convert.FromBase64String(parts[4]);
+                    byte[] publicKey;
+                    try
+                    {
+                        publicKey = Convert.FromBase64String(parts[4]);
+                        if (publicKey.Length == 0)
+                        {
+                            Logger.Log($"Invalid public key length from {remoteIP}");
+                            return;
+                        }
+                    }
+                    catch (FormatException ex)
+                    {
+                        Logger.Log($"Invalid public key format from {remoteIP}: {ex.Message}");
+                        return;
+                    }
 
                     if (sender != _myLogin)
                     {
@@ -983,6 +1030,7 @@ namespace LocalMessenger.UI.Forms
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
+            _contactUpdateTimer?.Stop();
             _cancellationTokenSource?.Cancel();
             try
             {
@@ -1088,7 +1136,6 @@ namespace LocalMessenger.UI.Forms
                 MessageBox.Show($"Failed to open log file: {ex.Message}");
             }
         }
-
 
         private void btnSettings_Click(object sender, EventArgs e)
         {
