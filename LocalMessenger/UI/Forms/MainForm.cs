@@ -258,70 +258,6 @@ namespace LocalMessenger.UI.Forms
             }
         }
 
-        //private void LoadSettings()
-        //{
-        //    if (File.Exists(SettingsFile))
-        //    {
-        //        try
-        //        {
-        //            var json = File.ReadAllText(SettingsFile);
-        //            if (string.IsNullOrWhiteSpace(json))
-        //            {
-        //                Logger.Log("Settings file is empty. Showing registration form.");
-        //                ShowRegistrationForm();
-        //                return;
-        //            }
-        //            var settings = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-        //            if (settings.ContainsKey("login") && settings.ContainsKey("name"))
-        //            {
-        //                myLogin = settings["login"];
-        //                myName = settings["name"];
-        //                myStatus = settings.ContainsKey("status") ? settings["status"] : "Online";
-        //                cmbStatus.SelectedItem = myStatus;
-        //                UpdateStatusAndIP();
-        //                Logger.Log($"Settings loaded: Login={myLogin}, Name={myName}, Status={myStatus}");
-        //            }
-        //            else
-        //            {
-        //                Logger.Log("Settings file is invalid. Showing registration form.");
-        //                ShowRegistrationForm();
-        //            }
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            Logger.Log($"Error loading settings: {ex.Message}");
-        //            MessageBox.Show($"Error loading settings: {ex.Message}");
-        //            ShowRegistrationForm();
-        //        }
-        //    }
-        //    else
-        //    {
-        //        Logger.Log("Settings file not found. Showing registration form.");
-        //        ShowRegistrationForm();
-        //    }
-        //}
-
-        //private void SaveSettings()
-        //{
-        //    try
-        //    {
-        //        var settings = new Dictionary<string, string>
-        //        {
-        //            ["Login"] = _myLogin,
-        //            ["Name"] = _myName,
-        //            ["Status"] = _myStatus,
-        //            ["EncryptionKey"] = Convert.ToBase64String(_encryptionKey)
-        //        };
-        //        var json = JsonConvert.SerializeObject(settings, Formatting.Indented);
-        //        File.WriteAllText(Configuration.SettingsFile, json);
-        //        Logger.Log("Settings saved successfully");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Logger.Log($"Error saving settings: {ex.Message}");
-        //    }
-        //}
-
         private void SaveSettings()
         {
             try
@@ -846,56 +782,6 @@ namespace LocalMessenger.UI.Forms
             }
         }
 
-        //private async Task ReceiveLargeFileAsync(NetworkStream stream, string filePath, long fileSize, int chunkSize, byte[] sharedKey)
-        //{
-        //    using (var fs = File.Create(filePath))
-        //    {
-        //        var progressForm = new ProgressForm(Path.GetFileName(filePath), fileSize);
-        //        progressForm.Show();
-        //        long totalRead = 0;
-
-        //        while (totalRead < fileSize)
-        //        {
-        //            var buffer = new byte[4096];
-        //            var bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
-        //            var chunkMessage = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-        //            var chunkParts = chunkMessage.Split('|');
-        //            var encryptedChunk = Convert.FromBase64String(chunkParts[0]);
-        //            var nonce = Convert.FromBase64String(chunkParts[1]);
-        //            var chunkLength = int.Parse(chunkParts[2]);
-
-        //            var decryptedChunk = DecryptChunk(encryptedChunk, sharedKey, nonce);
-        //            await fs.WriteAsync(decryptedChunk, 0, chunkLength);
-        //            totalRead += chunkLength;
-
-        //            progressForm.UpdateProgress(totalRead);
-        //        }
-
-        //        progressForm.Close();
-        //    }
-
-        //    Logger.Log($"Large file received successfully: {filePath}");
-        //}
-
-        //private byte[] DecryptChunk(byte[] cipherText, byte[] key, byte[] nonce)
-        //{
-        //    using (var aes = Aes.Create())
-        //    {
-        //        aes.Key = key;
-        //        aes.IV = nonce;
-        //        aes.Mode = CipherMode.CBC;
-        //        aes.Padding = PaddingMode.PKCS7;
-
-        //        using (var ms = new MemoryStream())
-        //        using (var cs = new CryptoStream(ms, aes.CreateDecryptor(), CryptoStreamMode.Write))
-        //        {
-        //            cs.Write(cipherText, 0, cipherText.Length);
-        //            cs.Flush();
-        //            return ms.ToArray();
-        //        }
-        //    }
-        //}
-
         private async void TrySendBufferedMessagesAsync()
         {
             var messages = _bufferManager.GetBuffer();
@@ -1171,56 +1057,6 @@ namespace LocalMessenger.UI.Forms
             return key;
         }
 
-        //  не работал, пока не юзаем
-        //private async void btnCreateGroup_Click(object sender, EventArgs e)
-        //{
-        //    Logger.Log("Creating group");
-        //    using (var form = new GroupCreationForm())
-        //    {
-        //        if (form.ShowDialog() == DialogResult.OK)
-        //        {
-        //            var groupID = form.GroupID;
-        //            var members = form.SelectedMembers;
-        //            var groupKey = GenerateGroupKey();
-        //            groupKeys[groupID] = groupKey;
-        //            Logger.Log($"Group {groupID} created successfully with members: {string.Join(",", members)}");
-
-        //            foreach (var member in members)
-        //            {
-        //                string contactIP = contactIPs.ContainsKey(member) ? contactIPs[member] : member;
-        //                if (!sharedKeys.ContainsKey(member))
-        //                {
-        //                    Logger.Log($"No shared key found for {member}, attempting key exchange.");
-        //                    var sharedKey = await ExchangeKeysWithContactAsync(contactIP);
-        //                    if (sharedKey == null)
-        //                    {
-        //                        Logger.Log($"Failed to establish connection with {member} (IP: {contactIP})");
-        //                        MessageBox.Show($"Failed to establish connection with {member}");
-        //                        continue;
-        //                    }
-        //                }
-
-        //                var memberSharedKey = sharedKeys[member];
-        //                var nonce = GenerateNonce();
-        //                var groupKeyString = Convert.ToBase64String(groupKey);
-        //                var encryptedGroupKey = Encrypt(groupKeyString, memberSharedKey, nonce);
-        //                var message = $"GROUP_KEY|{groupID}|{Convert.ToBase64String(encryptedGroupKey)}|{Convert.ToBase64String(nonce)}|{Convert.ToBase64String(new byte[16])}|{myLogin}";
-        //                bool sent = await SendTcpMessageAsync(contactIP, message);
-        //                if (!sent)
-        //                {
-        //                    bufferManager.AddToBuffer(contactIP, message);
-        //                    Logger.Log($"Group key for {member} added to buffer due to send failure");
-        //                    MessageBox.Show($"Group key for {member} added to buffer due to send failure.");
-        //                }
-        //            }
-        //        }
-        //        else
-        //        {
-        //            Logger.Log("Group creation cancelled");
-        //        }
-        //    }
-        //}
-
         private byte[] GenerateGroupKey()
         {
             var key = new byte[32];
@@ -1271,38 +1107,6 @@ namespace LocalMessenger.UI.Forms
         //    var textBounds = new Rectangle(e.Bounds.Left + 20, e.Bounds.Top, e.Bounds.Width - 20, e.Bounds.Height);
         //    e.Graphics.DrawString(item.Text, lstContacts.Font, Brushes.Black, textBounds);
         //    e.DrawFocusRectangle();
-        //}
-
-        //    private async void SendStatusUpdateBroadcast()
-        //{
-        //    try
-        //    {
-        //        var publicKey = GetMyPublicKey();
-        //        var data = $"HELLO|{_myLogin}|{_myName}|{_myStatus}|{Convert.ToBase64String(publicKey)}";
-        //        var bytes = Encoding.UTF8.GetBytes(data);
-        //        await udpSender.SendAsync(bytes, bytes.Length, new IPEndPoint(IPAddress.Broadcast, 11000));
-        //        Logger.Log($"Sent immediate HELLO broadcast with updated status: {data}");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Logger.Log($"Error sending status update broadcast: {ex.Message}");
-        //    }
-        //}
-
-        //private async void SendStatusUpdateBroadcast()
-        //{
-        //    try
-        //    {
-        //        var publicKey = GetMyPublicKey();
-        //        var data = $"HELLO|{_myLogin}|{_myName}|{_myStatus}|{Convert.ToBase64String(publicKey)}";
-        //        var bytes = Encoding.UTF8.GetBytes(data);
-        //        await _udpManager.SendAsync(bytes, bytes.Length, new IPEndPoint(IPAddress.Broadcast, 11000)); // Доступ к udpSender через _udpManager
-        //        Logger.Log($"Sent immediate HELLO broadcast with updated status: {data}");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Logger.Log($"Error sending status update broadcast: {ex.Message}");
-        //    }
         //}
 
         private async void SendStatusUpdateBroadcast()

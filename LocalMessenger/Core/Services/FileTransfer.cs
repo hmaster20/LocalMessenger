@@ -305,4 +305,56 @@ namespace LocalMessenger.Core.Services
 //            }
 //        }
 
-        #endregion
+
+
+//private async Task ReceiveLargeFileAsync(NetworkStream stream, string filePath, long fileSize, int chunkSize, byte[] sharedKey)
+//{
+//    using (var fs = File.Create(filePath))
+//    {
+//        var progressForm = new ProgressForm(Path.GetFileName(filePath), fileSize);
+//        progressForm.Show();
+//        long totalRead = 0;
+
+//        while (totalRead < fileSize)
+//        {
+//            var buffer = new byte[4096];
+//            var bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+//            var chunkMessage = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+//            var chunkParts = chunkMessage.Split('|');
+//            var encryptedChunk = Convert.FromBase64String(chunkParts[0]);
+//            var nonce = Convert.FromBase64String(chunkParts[1]);
+//            var chunkLength = int.Parse(chunkParts[2]);
+
+//            var decryptedChunk = DecryptChunk(encryptedChunk, sharedKey, nonce);
+//            await fs.WriteAsync(decryptedChunk, 0, chunkLength);
+//            totalRead += chunkLength;
+
+//            progressForm.UpdateProgress(totalRead);
+//        }
+
+//        progressForm.Close();
+//    }
+
+//    Logger.Log($"Large file received successfully: {filePath}");
+//}
+
+//private byte[] DecryptChunk(byte[] cipherText, byte[] key, byte[] nonce)
+//{
+//    using (var aes = Aes.Create())
+//    {
+//        aes.Key = key;
+//        aes.IV = nonce;
+//        aes.Mode = CipherMode.CBC;
+//        aes.Padding = PaddingMode.PKCS7;
+
+//        using (var ms = new MemoryStream())
+//        using (var cs = new CryptoStream(ms, aes.CreateDecryptor(), CryptoStreamMode.Write))
+//        {
+//            cs.Write(cipherText, 0, cipherText.Length);
+//            cs.Flush();
+//            return ms.ToArray();
+//        }
+//    }
+//}
+
+#endregion
