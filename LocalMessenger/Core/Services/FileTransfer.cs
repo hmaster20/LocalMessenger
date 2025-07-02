@@ -8,6 +8,16 @@ using LocalMessenger.Core.Security;
 using LocalMessenger.Utilities;
 using LocalMessenger.UI.Forms;
 
+using System;
+using System.IO;
+using System.Linq;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading.Tasks;
+using LocalMessenger.Core.Security;
+using LocalMessenger.Utilities;
+using LocalMessenger.UI.Forms;
+
 namespace LocalMessenger.Core.Services
 {
     public class FileTransfer
@@ -22,37 +32,46 @@ namespace LocalMessenger.Core.Services
             Directory.CreateDirectory(_attachmentsPath);
         }
 
-        public async Task SendFile(string filePath, string targetIP)
+        public async Task<bool> SendFileAsync(string filePath, string targetIP)
         {
-            var fileName = Path.GetFileName(filePath);
-            var fileSize = new FileInfo(filePath).Length;
-            var nonce = CryptoUtils.GenerateNonce();
-
-            using (var client = new TcpClient())
+            try
             {
-                await client.ConnectAsync(targetIP, 12000);
-                using (var stream = client.GetStream())
+                var fileName = Path.GetFileName(filePath);
+                var fileSize = new FileInfo(filePath).Length;
+                var nonce = CryptoUtils.GenerateNonce();
+
+                using (var client = new TcpClient())
                 {
-                    var header = $"FILE|{fileName}|{fileSize}|{Convert.ToBase64String(nonce)}";
-                    var headerBytes = Encoding.UTF8.GetBytes(header);
-                    await stream.WriteAsync(headerBytes, 0, headerBytes.Length);
-
-                    using (var fileStream = File.OpenRead(filePath))
+                    await client.ConnectAsync(targetIP, 12000);
+                    using (var stream = client.GetStream())
                     {
-                        var buffer = new byte[1024 * 1024]; // 1 MB chunks
-                        int bytesRead;
-                        long totalSent = 0;
+                        var header = $"FILE|{fileName}|{fileSize}|{Convert.ToBase64String(nonce)}";
+                        var headerBytes = Encoding.UTF8.GetBytes(header);
+                        await stream.WriteAsync(headerBytes, 0, headerBytes.Length);
 
-                        while ((bytesRead = await fileStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                        using (var fileStream = File.OpenRead(filePath))
                         {
-                            var encrypted = CryptoUtils.EncryptChunk(buffer, bytesRead, _encryptionKey, nonce);
-                            await stream.WriteAsync(encrypted, 0, encrypted.Length);
-                            totalSent += bytesRead;
+                            var buffer = new byte[1024 * 1024]; // 1 MB chunks
+                            int bytesRead;
+                            long totalSent = 0;
+
+                            while ((bytesRead = await fileStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                            {
+                                var encrypted = CryptoUtils.EncryptChunk(buffer, bytesRead, _encryptionKey, nonce);
+                                await stream.WriteAsync(encrypted, 0, encrypted.Length);
+                                totalSent += bytesRead;
+                            }
                         }
                     }
                 }
+                Logger.Log($"File sent successfully to {targetIP}: {filePath}");
+                return true;
             }
-            Logger.Log($"File sent successfully to {targetIP}: {filePath}");
+            catch (Exception ex)
+            {
+                Logger.Log($"File send error to {targetIP}: {ex.Message}");
+                return false;
+            }
         }
 
         public async Task ReceiveFile(TcpClient client)

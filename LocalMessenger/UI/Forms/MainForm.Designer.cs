@@ -70,7 +70,7 @@ namespace LocalMessenger.UI.Forms
             this.txtMessage.Name = "txtMessage";
             this.txtMessage.Size = new System.Drawing.Size(325, 24);
             this.txtMessage.TabIndex = 1;
-            this.txtMessage.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.txtMessage_KeyPress);
+            this.txtMessage.KeyDown += new System.Windows.Forms.KeyEventHandler(this.txtMessage_KeyDown);
             // 
             // cmbStatus
             // 

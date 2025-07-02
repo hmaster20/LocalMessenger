@@ -57,7 +57,10 @@
     <Compile Include="Core\Models\BufferedMessage.cs" />
     <Compile Include="Core\Models\Enums.cs" />
     <Compile Include="Core\Models\Message.cs" />
+    <Compile Include="Core\Models\MessageHandler.cs" />
+    <Compile Include="Core\NativeMethods.cs" />
     <Compile Include="Core\Security\CryptoUtils.cs" />
+    <Compile Include="Core\Services\ContactManager.cs" />
     <Compile Include="Core\Services\FileTransfer.cs" />
     <Compile Include="Network\Interfaces\INetworkManager.cs" />
     <Compile Include="Network\NetworkUtils.cs" />
@@ -70,6 +73,7 @@
       <DependentUpon>GroupCreationForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Core\Services\HistoryManager.cs" />
+    <Compile Include="UI\Forms\UIManager.cs" />
     <Compile Include="Utilities\Configuration.cs" />
     <Compile Include="Utilities\ErrorHandler.cs" />
     <Compile Include="Utilities\Logger.cs" />
@@ -120,6 +124,7 @@
     <EmbeddedResource Include="UI\Forms\SettingsForm.resx">
       <DependentUpon>SettingsForm.cs</DependentUpon>
     </EmbeddedResource>
+    <None Include="AppSettings.json" />
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
