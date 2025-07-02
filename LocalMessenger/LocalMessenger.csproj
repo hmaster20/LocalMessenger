@@ -60,6 +60,7 @@
     <Compile Include="Core\Security\CryptoUtils.cs" />
     <Compile Include="Core\Services\FileTransfer.cs" />
     <Compile Include="Network\Interfaces\INetworkManager.cs" />
+    <Compile Include="Network\NetworkUtils.cs" />
     <Compile Include="Network\TCP\TcpServer.cs" />
     <Compile Include="Network\UDP\UdpManager.cs" />
     <Compile Include="UI\Forms\GroupCreationForm.cs">
@@ -93,7 +94,6 @@
     <Compile Include="UI\Forms\RegistrationForm.Designer.cs">
       <DependentUpon>RegistrationForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="Core\Security\SecurityHelper.cs" />
     <Compile Include="UI\Forms\SettingsForm.cs">
       <SubType>Form</SubType>
     </Compile>

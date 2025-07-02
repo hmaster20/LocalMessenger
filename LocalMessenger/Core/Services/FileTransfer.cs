@@ -1,26 +1,25 @@
-﻿using LocalMessenger.Core.Security;
-using LocalMessenger.Utilities;
-using LocalMessenger.UI.Forms;
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
-using System.Security.Cryptography;
+using LocalMessenger.Core.Security;
+using LocalMessenger.Utilities;
+using LocalMessenger.UI.Forms;
 
 namespace LocalMessenger.Core.Services
 {
     public class FileTransfer
     {
-        private readonly string AttachmentsPath;
-        private readonly byte[] encryptionKey;
+        private readonly string _attachmentsPath;
+        private readonly byte[] _encryptionKey;
 
         public FileTransfer(byte[] key)
         {
-            encryptionKey = key;
-            AttachmentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "LocalMessenger", "attachments");
-            Directory.CreateDirectory(AttachmentsPath);
+            _encryptionKey = key;
+            _attachmentsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "LocalMessenger", "attachments");
+            Directory.CreateDirectory(_attachmentsPath);
         }
 
         public async Task SendFile(string filePath, string targetIP)
@@ -46,13 +45,14 @@ namespace LocalMessenger.Core.Services
 
                         while ((bytesRead = await fileStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
                         {
-                            var encrypted = CryptoUtils.Encrypt(Encoding.UTF8.GetString(buffer, 0, bytesRead), encryptionKey, nonce);
+                            var encrypted = CryptoUtils.EncryptChunk(buffer, bytesRead, _encryptionKey, nonce);
                             await stream.WriteAsync(encrypted, 0, encrypted.Length);
                             totalSent += bytesRead;
                         }
                     }
                 }
             }
+            Logger.Log($"File sent successfully to {targetIP}: {filePath}");
         }
 
         public async Task ReceiveFile(TcpClient client)
@@ -80,52 +80,12 @@ namespace LocalMessenger.Core.Services
                         while (remaining > 0)
                         {
                             bytesRead = await stream.ReadAsync(fileBuffer, 0, (int)Math.Min(fileBuffer.Length, remaining));
-                            var decrypted = CryptoUtils.Decrypt(fileBuffer.Take(bytesRead).ToArray(), encryptionKey, nonce);
-                            await fileStream.WriteAsync(Encoding.UTF8.GetBytes(decrypted), 0, decrypted.Length);
+                            var decrypted = CryptoUtils.DecryptChunk(fileBuffer.Take(bytesRead).ToArray(), _encryptionKey, nonce);
+                            await fileStream.WriteAsync(decrypted, 0, decrypted.Length);
                             remaining -= bytesRead;
                         }
                     }
-                }
-            }
-        }
-
-        public string GenerateUniqueFilePath(string fileName)
-        {
-            var filePath = Path.Combine(AttachmentsPath, $"{Guid.NewGuid()}_{fileName}");
-            Logger.Log($"Generated unique file path: {filePath}");
-            return filePath;
-        }
-
-        public async Task<bool> SendFileAsync(string contactIP, string message, string filePath)
-        {
-            using (var client = new TcpClient())
-            {
-                try
-                {
-                    await client.ConnectAsync(contactIP, 12000);
-                    using (var stream = client.GetStream())
-                    {
-                        var messageBytes = Encoding.UTF8.GetBytes(message);
-                        await stream.WriteAsync(messageBytes, 0, messageBytes.Length);
-                        await stream.FlushAsync();
-
-                        using (var fs = File.OpenRead(filePath))
-                        {
-                            var buffer = new byte[4096];
-                            int bytesRead;
-                            while ((bytesRead = await fs.ReadAsync(buffer, 0, buffer.Length)) > 0)
-                            {
-                                await stream.WriteAsync(buffer, 0, bytesRead);
-                            }
-                        }
-                    }
-                    Logger.Log($"File sent successfully to {contactIP}: {filePath}");
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    Logger.Log($"File send error to {contactIP}: {ex.Message}");
-                    return false;
+                    Logger.Log($"File received successfully: {filePath}");
                 }
             }
         }
@@ -140,13 +100,11 @@ namespace LocalMessenger.Core.Services
                     await client.ConnectAsync(contactIP, 12000);
                     using (var stream = client.GetStream())
                     {
-                        // Send file metadata
                         var message = $"{messagePrefix}_CHUNKED|{myLogin}|{fileName}|{fileSize}|{chunkSize}";
                         var messageBytes = Encoding.UTF8.GetBytes(message);
                         await stream.WriteAsync(messageBytes, 0, messageBytes.Length);
                         await stream.FlushAsync();
 
-                        // Show progress form
                         var progressForm = new ProgressForm(fileName, fileSize);
                         progressForm.Show();
 
@@ -157,9 +115,8 @@ namespace LocalMessenger.Core.Services
                             int bytesRead;
                             while ((bytesRead = await fs.ReadAsync(buffer, 0, buffer.Length)) > 0)
                             {
-                                // Encrypt chunk
                                 var nonce = CryptoUtils.GenerateNonce();
-                                var encryptedChunk = EncryptChunk(buffer, bytesRead, sharedKey, nonce);
+                                var encryptedChunk = CryptoUtils.EncryptChunk(buffer, bytesRead, sharedKey, nonce);
                                 var chunkMessage = $"{Convert.ToBase64String(encryptedChunk)}|{Convert.ToBase64String(nonce)}|{bytesRead}";
                                 var chunkBytes = Encoding.UTF8.GetBytes(chunkMessage);
                                 await stream.WriteAsync(chunkBytes, 0, chunkBytes.Length);
@@ -183,23 +140,11 @@ namespace LocalMessenger.Core.Services
             }
         }
 
-        private byte[] EncryptChunk(byte[] data, int length, byte[] key, byte[] nonce)
+        public string GenerateUniqueFilePath(string fileName)
         {
-            using (var aes = Aes.Create())
-            {
-                aes.Key = key;
-                aes.IV = nonce;
-                aes.Mode = CipherMode.CBC;
-                aes.Padding = PaddingMode.PKCS7;
-
-                using (var ms = new MemoryStream())
-                using (var cs = new CryptoStream(ms, aes.CreateEncryptor(), CryptoStreamMode.Write))
-                {
-                    cs.Write(data, 0, length);
-                    cs.FlushFinalBlock();
-                    return ms.ToArray();
-                }
-            }
+            var filePath = Path.Combine(_attachmentsPath, $"{Guid.NewGuid()}_{fileName}");
+            Logger.Log($"Generated unique file path: {filePath}");
+            return filePath;
         }
     }
 }
