@@ -38,8 +38,10 @@ namespace LocalMessenger
         private HistoryManager historyManager;
         private MessageBufferManager bufferManager;
         private byte[] encryptionKey;
+
         //private Timer blinkTimer;
         private HashSet<string> blinkingContacts = new HashSet<string>();
+
         private ImageList statusIcons;
         private Icon appIcon; // Поле для хранения иконки
 
@@ -137,6 +139,105 @@ namespace LocalMessenger
             rtbHistory.DragDrop += rtbHistory_DragDrop;
         }
 
+        private async Task SendFilesToContactAsync(IEnumerable<string> filePaths)
+        {
+            if (lstContacts.SelectedItems.Count == 0) return;
+
+            var selectedContact = lstContacts.SelectedItems[0].Text;
+            var contactLogin = selectedContact.Split(' ')[0];
+
+            if (contactLogin == myLogin)
+            {
+                Logger.Log("Attempted to send file to self. Ignored.");
+                MessageBox.Show("Cannot send file to yourself.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            foreach (var filePath in filePaths)
+            {
+                if (!File.Exists(filePath)) continue;
+
+                var fileName = Path.GetFileName(filePath);
+                var fileSize = new FileInfo(filePath).Length;
+
+                if (fileSize > 2L * 1024 * 1024 * 1024) // 2 GB limit
+                {
+                    MessageBox.Show($"File size exceeds 2 GB limit: {fileName}", "Error");
+                    continue;
+                }
+
+                var cachedFilePath = Path.Combine(AttachmentsPath, $"{Guid.NewGuid()}_{fileName}");
+                File.Copy(filePath, cachedFilePath);
+
+                byte[] sharedKey = null;
+                string contactIP = contactIPs.ContainsKey(contactLogin) ? contactIPs[contactLogin] : contactLogin;
+                if (!sharedKeys.ContainsKey(contactLogin))
+                {
+                    Logger.Log($"No shared key found for {contactLogin}, attempting key exchange.");
+                    sharedKey = await ExchangeKeysWithContactAsync(contactIP);
+                    if (sharedKey == null)
+                    {
+                        Logger.Log($"Failed to establish connection with {contactLogin} (IP: {contactIP})");
+                        MessageBox.Show($"Failed to establish connection with {contactLogin}");
+                        continue;
+                    }
+                }
+                else
+                {
+                    sharedKey = sharedKeys[contactLogin];
+                }
+
+                var isImage = new[] { ".jpg", ".png", ".gif" }.Contains(Path.GetExtension(fileName).ToLower());
+                var messageType = isImage ? MessageType.Image : MessageType.File;
+                var messagePrefix = isImage ? "IMAGE" : "FILE";
+                bool sent;
+
+                if (fileSize <= 100 * 1024 * 1024) // 100 MB
+                {
+                    var message = $"{messagePrefix}|{myLogin}|{fileName}|{fileSize}";
+                    sent = await SendFileAsync(contactIP, message, cachedFilePath);
+                }
+                else
+                {
+                    sent = await SendLargeFileAsync(contactIP, messagePrefix, fileName, fileSize, cachedFilePath, sharedKey);
+                }
+
+                if (sent)
+                {
+                    UpdateHistory(contactLogin, cachedFilePath, messageType, isReceived: false);
+                    Logger.Log($"{messageType} sent to {contactLogin} (IP: {contactIP}): {fileName}");
+                }
+                else
+                {
+                    bufferManager.AddToBuffer(contactIP, $"{messagePrefix}|{myLogin}|{fileName}|{fileSize}");
+                    UpdateHistory(contactLogin, $"[SYSTEM] {messageType} to {contactLogin} buffered due to send failure.", MessageType.Text, isReceived: false);
+                    Logger.Log($"{messageType} for {contactLogin} (IP: {contactIP}) added to buffer: {fileName}");
+                }
+            }
+        }
+
+        private async void btnSendFile_Click(object sender, EventArgs e)
+        {
+            using (var openFileDialog = new OpenFileDialog())
+            {
+                openFileDialog.Filter = "All Files (*.*)|*.*|Images (*.jpg, *.png, *.gif)|*.jpg;*.png;*.gif";
+                openFileDialog.Multiselect = true;
+                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    await SendFilesToContactAsync(openFileDialog.FileNames);
+                }
+            }
+        }
+
+        private async void rtbHistory_DragDrop(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                await SendFilesToContactAsync(files);
+            }
+        }
+
         private void rtbHistory_DragEnter(object sender, DragEventArgs e)
         {
             // Проверяем, что перетаскиваются файлы
@@ -147,82 +248,6 @@ namespace LocalMessenger
             else
             {
                 e.Effect = DragDropEffects.None;
-            }
-        }
-
-        private async void rtbHistory_DragDrop(object sender, DragEventArgs e)
-        {
-            if (lstContacts.SelectedItems.Count == 0) return;
-
-            // Получаем список перетащенных файлов
-            string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
-            if (files == null || files.Length == 0) return;
-
-            var selectedContact = lstContacts.SelectedItems[0].Text;
-            var contactLogin = selectedContact.Split(' ')[0];
-
-            // Отправляем каждый файл
-            foreach (var filePath in files)
-            {
-                if (File.Exists(filePath))
-                {
-                    var fileName = Path.GetFileName(filePath);
-                    var fileSize = new FileInfo(filePath).Length;
-
-                    if (fileSize > 2L * 1024 * 1024 * 1024) // 2 GB limit
-                    {
-                        MessageBox.Show($"File size exceeds 2 GB limit: {fileName}", "Error");
-                        continue;
-                    }
-
-                    var cachedFilePath = Path.Combine(AttachmentsPath, $"{Guid.NewGuid()}_{fileName}");
-                    File.Copy(filePath, cachedFilePath);
-
-                    byte[] sharedKey = null;
-                    string contactIP = contactIPs.ContainsKey(contactLogin) ? contactIPs[contactLogin] : contactLogin;
-                    if (!sharedKeys.ContainsKey(contactLogin))
-                    {
-                        Logger.Log($"No shared key found for {contactLogin}, attempting key exchange.");
-                        sharedKey = await ExchangeKeysWithContactAsync(contactIP);
-                        if (sharedKey == null)
-                        {
-                            Logger.Log($"Failed to establish connection with {contactLogin} (IP: {contactIP})");
-                            MessageBox.Show($"Failed to establish connection with {contactLogin}");
-                            continue;
-                        }
-                    }
-                    else
-                    {
-                        sharedKey = sharedKeys[contactLogin];
-                    }
-
-                    var isImage = new[] { ".jpg", ".png", ".gif" }.Contains(Path.GetExtension(fileName).ToLower());
-                    var messageType = isImage ? MessageType.Image : MessageType.File;
-                    var messagePrefix = isImage ? "IMAGE" : "FILE";
-                    bool sent;
-
-                    if (fileSize <= 100 * 1024 * 1024) // 100 MB
-                    {
-                        var message = $"{messagePrefix}|{myLogin}|{fileName}|{fileSize}";
-                        sent = await SendFileAsync(contactIP, message, cachedFilePath);
-                    }
-                    else
-                    {
-                        sent = await SendLargeFileAsync(contactIP, messagePrefix, fileName, fileSize, cachedFilePath, sharedKey);
-                    }
-
-                    if (sent)
-                    {
-                        UpdateHistory(contactLogin, cachedFilePath, messageType, isReceived: false);
-                        Logger.Log($"{messageType} sent to {contactLogin} (IP: {contactIP}): {fileName}");
-                    }
-                    else
-                    {
-                        bufferManager.AddToBuffer(contactIP, $"{messagePrefix}|{myLogin}|{fileName}|{fileSize}");
-                        UpdateHistory(contactLogin, $"[SYSTEM] {messageType} to {contactLogin} buffered due to send failure.", MessageType.Text, isReceived: false);
-                        Logger.Log($"{messageType} for {contactLogin} (IP: {contactIP}) added to buffer: {fileName}");
-                    }
-                }
             }
         }
 
@@ -799,6 +824,7 @@ namespace LocalMessenger
                     case MessageType.Text:
                         rtbHistory.AppendText(prefix + msg.Content + Environment.NewLine);
                         break;
+
                     case MessageType.File:
                         rtbHistory.AppendText(prefix + $"[File] {Path.GetFileName(msg.Content)}" + Environment.NewLine);
                         rtbHistory.SelectionStart = rtbHistory.TextLength - Path.GetFileName(msg.Content).Length - 1;
@@ -806,6 +832,7 @@ namespace LocalMessenger
                         rtbHistory.SelectionColor = Color.Blue;
                         rtbHistory.SelectionFont = new Font(rtbHistory.Font, FontStyle.Underline);
                         break;
+
                     case MessageType.Image:
                         rtbHistory.AppendText(prefix + $"[Image] {Path.GetFileName(msg.Content)}" + Environment.NewLine);
                         rtbHistory.SelectionStart = rtbHistory.TextLength - Path.GetFileName(msg.Content).Length - 1;
@@ -893,83 +920,6 @@ namespace LocalMessenger
                     bufferManager.AddToBuffer(contactIP, message);
                     UpdateHistory(contactLogin, $"[SYSTEM] Message to {contactLogin} buffered due to send failure.", MessageType.Text, isReceived: false);
                     Logger.Log($"Message for {contactLogin} (IP: {contactIP}) added to buffer: {txtMessage.Text}");
-                }
-            }
-        }
-
-        private async void btnSendFile_Click(object sender, EventArgs e)
-        {
-            if (lstContacts.SelectedItems.Count == 0) return;
-            var selectedContact = lstContacts.SelectedItems[0].Text;
-            var contactLogin = selectedContact.Split(' ')[0];
-            if (contactLogin == myLogin)
-            {
-                Logger.Log("Attempted to send file to self. Ignored.");
-                MessageBox.Show("Cannot send file to yourself.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            using (var openFileDialog = new OpenFileDialog())
-            {
-                openFileDialog.Filter = "All Files (*.*)|*.*|Images (*.jpg, *.png, *.gif)|*.jpg;*.png;*.gif";
-                if (openFileDialog.ShowDialog() == DialogResult.OK)
-                {
-                    var filePath = openFileDialog.FileName;
-                    var fileName = Path.GetFileName(filePath);
-                    var fileSize = new FileInfo(filePath).Length;
-                    if (fileSize > 2L * 1024 * 1024 * 1024) // 2 GB limit
-                    {
-                        MessageBox.Show("File size exceeds 2 GB limit.", "Error");
-                        return;
-                    }
-
-                    var cachedFilePath = Path.Combine(AttachmentsPath, $"{Guid.NewGuid()}_{fileName}");
-                    File.Copy(filePath, cachedFilePath);
-
-                    byte[] sharedKey = null;
-                    string contactIP = contactIPs.ContainsKey(contactLogin) ? contactIPs[contactLogin] : contactLogin;
-                    if (!sharedKeys.ContainsKey(contactLogin))
-                    {
-                        Logger.Log($"No shared key found for {contactLogin}, attempting key exchange.");
-                        sharedKey = await ExchangeKeysWithContactAsync(contactIP);
-                        if (sharedKey == null)
-                        {
-                            Logger.Log($"Failed to establish connection with {contactLogin} (IP: {contactIP})");
-                            MessageBox.Show($"Failed to establish connection with {contactLogin}");
-                            return;
-                        }
-                    }
-                    else
-                    {
-                        sharedKey = sharedKeys[contactLogin];
-                    }
-
-                    var isImage = new[] { ".jpg", ".png", ".gif" }.Contains(Path.GetExtension(fileName).ToLower());
-                    var messageType = isImage ? MessageType.Image : MessageType.File;
-                    var messagePrefix = isImage ? "IMAGE" : "FILE";
-                    bool sent;
-
-                    if (fileSize <= 100 * 1024 * 1024) // 100 MB
-                    {
-                        var message = $"{messagePrefix}|{myLogin}|{fileName}|{fileSize}";
-                        sent = await SendFileAsync(contactIP, message, cachedFilePath);
-                    }
-                    else
-                    {
-                        sent = await SendLargeFileAsync(contactIP, messagePrefix, fileName, fileSize, cachedFilePath, sharedKey);
-                    }
-
-                    if (sent)
-                    {
-                        UpdateHistory(contactLogin, cachedFilePath, messageType, isReceived: false);
-                        Logger.Log($"{messageType} sent to {contactLogin} (IP: {contactIP}): {fileName}");
-                    }
-                    else
-                    {
-                        bufferManager.AddToBuffer(contactIP, $"{messagePrefix}|{myLogin}|{fileName}|{fileSize}");
-                        UpdateHistory(contactLogin, $"[SYSTEM] {messageType} to {contactLogin} buffered due to send failure.", MessageType.Text, isReceived: false);
-                        Logger.Log($"{messageType} for {contactLogin} (IP: {contactIP}) added to buffer: {fileName}");
-                    }
                 }
             }
         }
@@ -1512,6 +1462,5 @@ namespace LocalMessenger
             }
             e.DrawFocusRectangle();
         }
-
     }
 }
