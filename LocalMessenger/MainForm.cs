@@ -487,7 +487,7 @@ namespace LocalMessenger
         private async void StartUdpBroadcast()
         {
             Logger.Log("Starting UDP broadcast for user discovery");
-            while (true)
+            while (!cancellationTokenSource.Token.IsCancellationRequested)
             {
                 try
                 {
@@ -496,12 +496,20 @@ namespace LocalMessenger
                     var bytes = Encoding.UTF8.GetBytes(data);
                     await udpSender.SendAsync(bytes, bytes.Length, new IPEndPoint(IPAddress.Broadcast, 11000));
                     Logger.Log($"Sent HELLO broadcast from {myIP}: {data}");
-                    await Task.Delay(15000);
+
+                    // Добавляем задержку с поддержкой отмены
+                    await Task.Delay(15000, cancellationTokenSource.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    Logger.Log("UDP broadcast cancelled");
+                    break;
                 }
                 catch (Exception ex)
                 {
                     Logger.Log($"Broadcast error: {ex.Message}");
-                    MessageBox.Show($"Broadcast error: {ex.Message}");
+                    // Задержка при ошибках с поддержкой отмены
+                    await Task.Delay(5000, cancellationTokenSource.Token);
                 }
             }
         }
@@ -515,7 +523,7 @@ namespace LocalMessenger
                 {
                     try
                     {
-                        var result = await Task.Run(() => udpListener.ReceiveAsync(), cancellationTokenSource.Token);
+                        var result = await udpListener.ReceiveAsync().WithCancellation(cancellationTokenSource.Token);
                         var message = Encoding.UTF8.GetString(result.Buffer);
                         var remoteIP = result.RemoteEndPoint.Address.ToString();
                         Logger.Log($"Received UDP message from {remoteIP}: {message}");
@@ -535,6 +543,8 @@ namespace LocalMessenger
                     catch (Exception ex)
                     {
                         Logger.Log($"UDP listener error: {ex.Message}");
+                        // Добавляем небольшую задержку при ошибках
+                        await Task.Delay(100, cancellationTokenSource.Token);
                     }
                 }
             }
@@ -601,16 +611,38 @@ namespace LocalMessenger
             {
                 tcpListener.Start();
                 Logger.Log("TCP server started on port 12000");
-                while (true)
+
+                while (!cancellationTokenSource.Token.IsCancellationRequested)
                 {
-                    var client = await tcpListener.AcceptTcpClientAsync();
-                    _ = HandleClientAsync(client);
+                    try
+                    {
+                        // Используем метод WithCancellation для AcceptTcpClientAsync
+                        var client = await tcpListener.AcceptTcpClientAsync().WithCancellation(cancellationTokenSource.Token);
+                        _ = HandleClientAsync(client); // Запускаем обработку в фоне
+
+                        // Небольшая задержка между принятием соединений
+                        await Task.Delay(10, cancellationTokenSource.Token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        Logger.Log("TCP server cancelled");
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log($"Server accept error: {ex.Message}");
+                        await Task.Delay(100, cancellationTokenSource.Token);
+                    }
                 }
             }
             catch (Exception ex)
             {
                 Logger.Log($"Server error: {ex.Message}");
                 MessageBox.Show($"Server error: {ex.Message}");
+            }
+            finally
+            {
+                tcpListener.Stop();
             }
         }
 
@@ -1229,29 +1261,23 @@ namespace LocalMessenger
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
+            Logger.Log("Starting application shutdown");
+
+            // Инициируем отмену всех операций
             cancellationTokenSource.Cancel();
 
+            // Закрываем сетевые соединения
+            udpListener?.Close();
+            udpSender?.Close();
+            tcpListener?.Stop();
+
+            Logger.Log("Network resources closed");
+
+            // Сохраняем данные
             SaveSettings();
             bufferManager?.SaveBuffer();
-            if (udpListener != null)
-            {
-                udpListener.Close();
-                udpListener.Dispose();
-                Logger.Log("UDP listener closed");
-            }
-            if (udpSender != null)
-            {
-                udpSender.Close();
-                udpSender.Dispose();
-                Logger.Log("UDP sender closed");
-            }
-            if (tcpListener != null)
-            {
-                tcpListener.Stop();
-                Logger.Log("TCP listener stopped");
-            }
-            //blinkTimer?.Stop();
-            Logger.Log("Application closing");
+
+            Logger.Log("Application shutdown completed");
         }
 
         private void SaveSettings()
@@ -1461,6 +1487,43 @@ namespace LocalMessenger
                 e.Graphics.DrawString(text, new Font("Segoe UI Emoji", 9), brush, e.Bounds.Left + 20, e.Bounds.Top);
             }
             e.DrawFocusRectangle();
+        }
+
+    }
+
+    public static class UdpClientExtensions
+    {
+        public static async Task<UdpReceiveResult> WithCancellation(this Task<UdpReceiveResult> task, CancellationToken cancellationToken)
+        {
+            var tcs = new TaskCompletionSource<bool>();
+
+            using (cancellationToken.Register(s => ((TaskCompletionSource<bool>)s).TrySetResult(true), tcs))
+            {
+                if (task != await Task.WhenAny(task, tcs.Task))
+                {
+                    throw new OperationCanceledException(cancellationToken);
+                }
+            }
+
+            return await task;
+        }
+    }
+
+    public static class TcpListenerExtensions
+    {
+        public static async Task<TcpClient> WithCancellation(this Task<TcpClient> task, CancellationToken cancellationToken)
+        {
+            var tcs = new TaskCompletionSource<bool>();
+
+            using (cancellationToken.Register(s => ((TaskCompletionSource<bool>)s).TrySetResult(true), tcs))
+            {
+                if (task != await Task.WhenAny(task, tcs.Task))
+                {
+                    throw new OperationCanceledException(cancellationToken);
+                }
+            }
+
+            return await task;
         }
     }
 }
