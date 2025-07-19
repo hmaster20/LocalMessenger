@@ -8,7 +8,6 @@ namespace LocalMessenger
         private System.Windows.Forms.ListView lstContacts;
         private System.Windows.Forms.TextBox txtMessage;
         private System.Windows.Forms.ComboBox cmbStatus;
-        private System.Windows.Forms.NotifyIcon notifyIcon;
         private System.Windows.Forms.Button btnCreateGroup;
         private System.Windows.Forms.Button btnSend;
         private System.Windows.Forms.Button btnSendFile;
@@ -31,11 +30,9 @@ namespace LocalMessenger
 
         private void InitializeComponent()
         {
-            this.components = new System.ComponentModel.Container();
             this.lstContacts = new System.Windows.Forms.ListView();
             this.txtMessage = new System.Windows.Forms.TextBox();
             this.cmbStatus = new System.Windows.Forms.ComboBox();
-            this.notifyIcon = new System.Windows.Forms.NotifyIcon(this.components);
             this.btnCreateGroup = new System.Windows.Forms.Button();
             this.btnSend = new System.Windows.Forms.Button();
             this.btnSendFile = new System.Windows.Forms.Button();
@@ -91,10 +88,6 @@ namespace LocalMessenger
             this.cmbStatus.Size = new System.Drawing.Size(121, 24);
             this.cmbStatus.TabIndex = 2;
             this.cmbStatus.SelectedIndexChanged += new System.EventHandler(this.cmbStatus_SelectedIndexChanged);
-            // 
-            // notifyIcon
-            // 
-            this.notifyIcon.Text = "LocalMessenger";
             // 
             // btnCreateGroup
             // 
