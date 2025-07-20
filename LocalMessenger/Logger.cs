@@ -30,9 +30,10 @@ namespace LocalMessenger
         {
             try
             {
-                DateTime utcTime2 = DateTime.UtcNow;
-                DateTime utcPlus3Time = utcTime2.AddHours(3);
-                var logEntry = $"{utcPlus3Time:yyyy-MM-dd HH:mm:ss.fff} | {message}\n";
+                DateTime utcTime = DateTime.UtcNow;
+                TimeZoneInfo moscowTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Russian Standard Time");
+                DateTime moscowTime = TimeZoneInfo.ConvertTimeFromUtc(utcTime, moscowTimeZone);
+                var logEntry = $"{moscowTime:yyyy-MM-dd HH:mm:ss.fff} | {message}\n";
 
                 File.AppendAllText(LogFile, logEntry, Encoding.UTF8);
             }
