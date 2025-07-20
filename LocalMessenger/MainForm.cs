@@ -60,8 +60,7 @@ namespace LocalMessenger
             Logger.Log($"Application started. Session initialized for IP: {myIP}");
             InitializePaths();
             InitializeDirectories();
-            encryptionKey = GenerateEncryptionKey();
-            LoadSettings();
+            LoadSettingsAndKey();
             InitializeNetwork();
             historyManager = new HistoryManager(AppDataPath, encryptionKey);
             bufferManager = new MessageBufferManager(AppDataPath);
@@ -75,6 +74,64 @@ namespace LocalMessenger
             UpdateSendControlsState();
             LoadAllHistories();
             ConfigureControls();
+        }
+
+        private void LoadSettingsAndKey()
+        {
+            if (File.Exists(SettingsFile))
+            {
+                try
+                {
+                    var json = File.ReadAllText(SettingsFile);
+                    if (string.IsNullOrWhiteSpace(json))
+                    {
+                        Logger.Log("Settings file is empty. Showing registration form.");
+                        ShowRegistrationForm();
+                        return;
+                    }
+                    var settings = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
+                    if (settings.ContainsKey("login") && settings.ContainsKey("name"))
+                    {
+                        myLogin = settings["login"];
+                        myName = settings["name"];
+                        myStatus = settings.ContainsKey("status") ? settings["status"] : "Online";
+                        cmbStatus.SelectedItem = myStatus;
+
+                        // Запрашиваем пароль для загрузки ключа
+                        using (var passwordForm = new PasswordForm())
+                        {
+                            if (passwordForm.ShowDialog() == DialogResult.OK)
+                            {
+                                encryptionKey = KeyManager.LoadKey(passwordForm.Password);
+                            }
+                            else
+                            {
+                                Logger.Log("Password entry cancelled. Exiting application.");
+                                Application.Exit();
+                            }
+                        }
+
+                        UpdateStatusAndIP();
+                        Logger.Log($"Settings loaded: Login={myLogin}, Name={myName}, Status={myStatus}");
+                    }
+                    else
+                    {
+                        Logger.Log("Settings file is invalid. Showing registration form.");
+                        ShowRegistrationForm();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log($"Error loading settings or key: {ex.Message}");
+                    MessageBox.Show($"Error loading settings or key: {ex.Message}");
+                    ShowRegistrationForm();
+                }
+            }
+            else
+            {
+                Logger.Log("Settings file not found. Showing registration form.");
+                ShowRegistrationForm();
+            }
         }
 
         //private void InitializeBlinkTimer()
@@ -290,49 +347,6 @@ namespace LocalMessenger
             Logger.Log("Directories created or verified");
         }
 
-        private void LoadSettings()
-        {
-            if (File.Exists(SettingsFile))
-            {
-                try
-                {
-                    var json = File.ReadAllText(SettingsFile);
-                    if (string.IsNullOrWhiteSpace(json))
-                    {
-                        Logger.Log("Settings file is empty. Showing registration form.");
-                        ShowRegistrationForm();
-                        return;
-                    }
-                    var settings = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-                    if (settings.ContainsKey("login") && settings.ContainsKey("name"))
-                    {
-                        myLogin = settings["login"];
-                        myName = settings["name"];
-                        myStatus = settings.ContainsKey("status") ? settings["status"] : "Online";
-                        cmbStatus.SelectedItem = myStatus;
-                        UpdateStatusAndIP();
-                        Logger.Log($"Settings loaded: Login={myLogin}, Name={myName}, Status={myStatus}");
-                    }
-                    else
-                    {
-                        Logger.Log("Settings file is invalid. Showing registration form.");
-                        ShowRegistrationForm();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.Log($"Error loading settings: {ex.Message}");
-                    MessageBox.Show($"Error loading settings: {ex.Message}");
-                    ShowRegistrationForm();
-                }
-            }
-            else
-            {
-                Logger.Log("Settings file not found. Showing registration form.");
-                ShowRegistrationForm();
-            }
-        }
-
         private void ShowRegistrationForm()
         {
             using (var form = new RegistrationForm())
@@ -342,6 +356,7 @@ namespace LocalMessenger
                     myLogin = form.Login;
                     myName = form.Name;
                     myStatus = "Online";
+                    encryptionKey = KeyManager.GenerateAndSaveKey(form.Password); // Сохраняем ключ
                     SaveSettings();
                     UpdateStatusAndIP();
                     AddCurrentUserToContacts();
