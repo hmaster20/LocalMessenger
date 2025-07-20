@@ -24,13 +24,13 @@ namespace LocalMessenger
         {
             if (string.IsNullOrWhiteSpace(txtLogin.Text) || string.IsNullOrWhiteSpace(txtName.Text) || string.IsNullOrWhiteSpace(txtPassword.Text))
             {
-                MessageBox.Show("Please fill in all fields.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Заполните все поля.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
             if (txtLogin.Text.Contains(" "))
             {
-                MessageBox.Show("Login cannot contain spaces.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Логин должен содержать только латинские буквы, цифры и подчеркивания. Не должен содержать пробелов!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
