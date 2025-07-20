@@ -71,9 +71,24 @@ namespace LocalMessenger
         /// </summary>
         private void SaveMessages(string fileName, List<Message> messages)
         {
-            var json = JsonConvert.SerializeObject(messages, Formatting.Indented);
-            var encryptedData = Encrypt(json, encryptionKey);
-            File.WriteAllBytes(fileName, encryptedData);
+            try
+            {
+                var json = JsonConvert.SerializeObject(messages, Formatting.Indented);
+                var encryptedData = Encrypt(json, encryptionKey);
+                if (File.Exists(fileName))
+                {
+                    var backupFile = $"{fileName}.backup_{DateTime.Now:yyyyMMdd_HHmmss}";
+                    File.Copy(fileName, backupFile);
+                    Logger.Log($"Created backup of history file: {backupFile}");
+                }
+                File.WriteAllBytes(fileName, encryptedData);
+                Logger.Log($"Saved history to {fileName}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Error saving history to {fileName}: {ex.Message}");
+                throw; // Или обработать ошибку иным способом
+            }
         }
 
         /// <summary>
