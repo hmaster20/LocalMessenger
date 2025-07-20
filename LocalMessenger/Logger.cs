@@ -10,6 +10,7 @@ namespace LocalMessenger
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "LocalMessenger", "logs");
         private static readonly string LogFile = Path.Combine(LogDirectory, "log.txt");
+        private static readonly string HeartbeatLogFile = Path.Combine(LogDirectory, "heartbeat.log");
         private const long MaxLogSizeBytes = 10 * 1024 * 1024; // 10 MB
 
         static Logger()
@@ -17,16 +18,16 @@ namespace LocalMessenger
             try
             {
                 Directory.CreateDirectory(LogDirectory);
-                RotateLogIfNeeded();
+                RotateLogIfNeeded(LogFile);
+                RotateLogIfNeeded(HeartbeatLogFile);
             }
             catch (Exception ex)
             {
-                // Не прерываем работу приложения, если не удалось создать папку логов
                 Console.WriteLine($"Failed to initialize logger: {ex.Message}");
             }
         }
 
-        public static void Log(string message)
+        public static void Log(string message, bool isHeartbeat = false)
         {
             try
             {
@@ -35,7 +36,7 @@ namespace LocalMessenger
                 DateTime moscowTime = TimeZoneInfo.ConvertTimeFromUtc(utcTime, moscowTimeZone);
                 var logEntry = $"{moscowTime:yyyy-MM-dd HH:mm:ss.fff} | {message}\n";
 
-                File.AppendAllText(LogFile, logEntry, Encoding.UTF8);
+                File.AppendAllText(isHeartbeat ? HeartbeatLogFile : LogFile, logEntry, Encoding.UTF8);
             }
             catch (Exception)
             {
@@ -43,18 +44,18 @@ namespace LocalMessenger
             }
         }
 
-        private static void RotateLogIfNeeded()
+        private static void RotateLogIfNeeded(string filePath)
         {
             try
             {
-                if (File.Exists(LogFile))
+                if (File.Exists(filePath))
                 {
-                    var fileInfo = new FileInfo(LogFile);
+                    var fileInfo = new FileInfo(filePath);
                     if (fileInfo.Length > MaxLogSizeBytes)
                     {
                         string archiveFile = Path.Combine(LogDirectory,
-                            $"log_{DateTime.Now:yyyyMMdd_HHmmss}.txt");
-                        File.Move(LogFile, archiveFile);
+                            $"log_{DateTime.Now:yyyyMMdd_HHmmss}{Path.GetExtension(filePath)}");
+                        File.Move(filePath, archiveFile);
                     }
                 }
             }

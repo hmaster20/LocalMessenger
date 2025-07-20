@@ -502,7 +502,7 @@ namespace LocalMessenger
 
         private async void StartUdpBroadcast()
         {
-            Logger.Log("Starting UDP broadcast for user discovery");
+            Logger.Log("Starting UDP broadcast for user discovery", isHeartbeat: true);
             while (true)
             {
                 try
@@ -511,12 +511,12 @@ namespace LocalMessenger
                     var data = $"HELLO|{myLogin}|{myName}|{myStatus}|{Convert.ToBase64String(publicKey)}";
                     var bytes = Encoding.UTF8.GetBytes(data);
                     await udpSender.SendAsync(bytes, bytes.Length, new IPEndPoint(IPAddress.Broadcast, 11000));
-                    Logger.Log($"Sent HELLO broadcast from {myIP}: {data}");
+                    Logger.Log($"Sent HELLO broadcast from {myIP}: {data}", isHeartbeat: true);
                     await Task.Delay(15000); // HeartBit
                 }
                 catch (Exception ex)
                 {
-                    Logger.Log($"Broadcast error: {ex.Message}");
+                    Logger.Log($"Broadcast error: {ex.Message}", isHeartbeat: true);
                     MessageBox.Show($"Broadcast error: {ex.Message}");
                 }
             }
