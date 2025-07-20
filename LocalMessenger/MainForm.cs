@@ -476,10 +476,11 @@ namespace LocalMessenger
 
         private void AddCurrentUserToContacts()
         {
-            Logger.Log($"Added {myLogin} ({myName}, {myStatus}) to lstContacts");
-            if (!lstContacts.Items.Cast<ListViewItem>().Any(i => i.Text == $"{myName} ({myStatus})"))
+            Logger.Log($"Adding {myLogin} ({myName}, {myStatus}) to lstContacts");
+            if (!lstContacts.Items.Cast<ListViewItem>().Any(i => (string)i.Tag == myLogin))
             {
-                lstContacts.Items.Add(new ListViewItem($"{myName} ({myStatus})"));
+                var item = new ListViewItem($"{myLogin} ({myName}, {myStatus})") { Tag = myLogin };
+                lstContacts.Items.Add(item);
                 Logger.Log($"Added current user to contacts: {myLogin}");
             }
         }
@@ -567,7 +568,7 @@ namespace LocalMessenger
                         contactIPs[sender] = remoteIP;
                         lastHelloTimes[sender] = DateTime.Now;
                         var contactString = $"{sender} ({name}, {status})";
-                        var existingItem = lstContacts.Items.Cast<ListViewItem>().FirstOrDefault(i => i.Text.StartsWith(sender));
+                        var existingItem = lstContacts.Items.Cast<ListViewItem>().FirstOrDefault(i => (string)i.Tag == sender);
                         if (existingItem != null)
                         {
                             existingItem.Text = contactString;
@@ -575,7 +576,8 @@ namespace LocalMessenger
                         }
                         else
                         {
-                            lstContacts.Items.Add(new ListViewItem(contactString));
+                            var newItem = new ListViewItem(contactString) { Tag = sender };
+                            lstContacts.Items.Add(newItem);
                             Logger.Log($"Added contact: {sender} (Name: {name}, Status: {status}, IP: {remoteIP})");
                         }
                     }
@@ -870,9 +872,10 @@ namespace LocalMessenger
 
             foreach (var contact in contactsWithHistory)
             {
-                if (contact != myLogin && !lstContacts.Items.Cast<ListViewItem>().Any(i => i.Text.StartsWith(contact)))
+                if (contact != myLogin && !lstContacts.Items.Cast<ListViewItem>().Any(i => (string)i.Tag == contact))
                 {
-                    lstContacts.Items.Add(new ListViewItem($"{contact} ({contact}, Offline)"));
+                    var item = new ListViewItem($"{contact} ({contact}, Offline)") { Tag = contact };
+                    lstContacts.Items.Add(item);
                     Logger.Log($"Added contact with history to lstContacts: {contact} (Offline)");
                 }
             }
@@ -1212,17 +1215,16 @@ namespace LocalMessenger
             UpdateSendControlsState();
             if (lstContacts.SelectedItems.Count > 0)
             {
-                var selectedText = lstContacts.SelectedItems[0].Text;
-                var contact = ExtractLoginFromContactText(selectedText);
+                var contact = lstContacts.SelectedItems[0].Tag as string;
                 if (!string.IsNullOrEmpty(contact))
                 {
                     UpdateHistoryDisplay(contact);
                     blinkingContacts.Remove(contact);
-                    Logger.Log($"Selected contact: {selectedText}");
+                    Logger.Log($"Selected contact: {lstContacts.SelectedItems[0].Text}");
                 }
                 else
                 {
-                    Logger.Log($"Failed to extract login from: {selectedText}");
+                    Logger.Log($"No valid login in Tag for: {lstContacts.SelectedItems[0].Text}");
                     MessageBox.Show("Ошибка: не удалось определить логин контакта.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
