@@ -11,6 +11,7 @@ namespace LocalMessenger
     {
         private readonly string HistoryPath;
         private readonly byte[] encryptionKey;
+        private readonly Dictionary<string, List<Message>> messageCache = new Dictionary<string, List<Message>>();
 
         public HistoryManager(string appDataPath, byte[] encryptionKey)
         {
@@ -28,6 +29,7 @@ namespace LocalMessenger
             var messages = LoadMessages(contact);
             messages.Add(message);
             SaveMessages(fileName, messages);
+            messageCache[contact] = messages; // Обновляем кэш
         }
 
         /// <summary>
@@ -35,14 +37,27 @@ namespace LocalMessenger
         /// </summary>
         public List<Message> LoadMessages(string contact)
         {
+            if (messageCache.ContainsKey(contact))
+            {
+                Logger.Log($"Loaded {contact} history from cache");
+                return messageCache[contact];
+            }
+
             var fileName = Path.Combine(HistoryPath, $"{contact}.json");
-            if (!File.Exists(fileName)) return new List<Message>();
+            if (!File.Exists(fileName))
+            {
+                Logger.Log($"History file not found for contact: {contact} ({fileName})");
+                return new List<Message>();
+            }
 
             try
             {
                 var encryptedData = File.ReadAllBytes(fileName);
                 var decryptedJson = Decrypt(encryptedData, encryptionKey);
-                return JsonConvert.DeserializeObject<List<Message>>(decryptedJson) ?? new List<Message>();
+                var messages = JsonConvert.DeserializeObject<List<Message>>(decryptedJson) ?? new List<Message>();
+                messageCache[contact] = messages; // Сохраняем в кэш
+                Logger.Log($"Loaded {messages.Count} messages for contact: {contact}");
+                return messages;
             }
             catch (Exception ex)
             {
