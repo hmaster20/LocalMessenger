@@ -496,7 +496,7 @@ namespace LocalMessenger
                     var bytes = Encoding.UTF8.GetBytes(data);
                     await udpSender.SendAsync(bytes, bytes.Length, new IPEndPoint(IPAddress.Broadcast, 11000));
                     Logger.Log($"Sent HELLO broadcast from {myIP}: {data}");
-                    await Task.Delay(15000);
+                    await Task.Delay(15000); // HeartBit
                 }
                 catch (Exception ex)
                 {
@@ -551,7 +551,12 @@ namespace LocalMessenger
                 var parts = message.Split('|');
                 if (parts.Length == 5 && parts[0] == "HELLO")
                 {
-                    var sender = parts[1];
+                    var sender = parts[1].Trim(); // Удаляем пробелы
+                    if (string.IsNullOrWhiteSpace(sender) || sender.Contains(" "))
+                    {
+                        Logger.Log($"Invalid login format from {remoteIP}: {sender}");
+                        return;
+                    }
                     var name = parts[2];
                     var status = parts[3];
                     var publicKey = Convert.FromBase64String(parts[4]);
@@ -811,41 +816,45 @@ namespace LocalMessenger
         {
             Logger.Log($"Updated group history for {groupID}: {(isReceived ? "Received" : "Sent")} - {message}");
         }
-
         private void UpdateHistoryDisplay(string contact)
         {
             rtbHistory.Clear();
             var messages = historyManager.LoadMessages(contact);
-            foreach (var msg in messages)
+            if (messages.Count == 0)
             {
-                var prefix = $"[{msg.Timestamp:dd.MM.yyyy HH:mm:ss}] {msg.Sender}: ";
-                switch (msg.Type)
+                Logger.Log($"No messages found for contact: {contact}");
+                rtbHistory.AppendText($"Нет сообщений для {contact}" + Environment.NewLine);
+            }
+            else
+            {
+                foreach (var msg in messages)
                 {
-                    case MessageType.Text:
-                        rtbHistory.AppendText(prefix + msg.Content + Environment.NewLine);
-                        break;
-
-                    case MessageType.File:
-                        rtbHistory.AppendText(prefix + $"[File] {Path.GetFileName(msg.Content)}" + Environment.NewLine);
-                        rtbHistory.SelectionStart = rtbHistory.TextLength - Path.GetFileName(msg.Content).Length - 1;
-                        rtbHistory.SelectionLength = Path.GetFileName(msg.Content).Length;
-                        rtbHistory.SelectionColor = Color.Blue;
-                        rtbHistory.SelectionFont = new Font(rtbHistory.Font, FontStyle.Underline);
-                        break;
-
-                    case MessageType.Image:
-                        rtbHistory.AppendText(prefix + $"[Image] {Path.GetFileName(msg.Content)}" + Environment.NewLine);
-                        rtbHistory.SelectionStart = rtbHistory.TextLength - Path.GetFileName(msg.Content).Length - 1;
-                        rtbHistory.SelectionLength = Path.GetFileName(msg.Content).Length;
-                        rtbHistory.SelectionColor = Color.Blue;
-                        rtbHistory.SelectionFont = new Font(rtbHistory.Font, FontStyle.Underline);
-                        break;
+                    var prefix = $"[{msg.Timestamp:dd.MM.yyyy HH:mm:ss}] {msg.Sender}: ";
+                    switch (msg.Type)
+                    {
+                        case MessageType.Text:
+                            rtbHistory.AppendText(prefix + msg.Content + Environment.NewLine);
+                            break;
+                        case MessageType.File:
+                            rtbHistory.AppendText(prefix + $"[File] {Path.GetFileName(msg.Content)}" + Environment.NewLine);
+                            rtbHistory.SelectionStart = rtbHistory.TextLength - Path.GetFileName(msg.Content).Length - 1;
+                            rtbHistory.SelectionLength = Path.GetFileName(msg.Content).Length;
+                            rtbHistory.SelectionColor = Color.Blue;
+                            rtbHistory.SelectionFont = new Font(rtbHistory.Font, FontStyle.Underline);
+                            break;
+                        case MessageType.Image:
+                            rtbHistory.AppendText(prefix + $"[Image] {Path.GetFileName(msg.Content)}" + Environment.NewLine);
+                            rtbHistory.SelectionStart = rtbHistory.TextLength - Path.GetFileName(msg.Content).Length - 1;
+                            rtbHistory.SelectionLength = Path.GetFileName(msg.Content).Length;
+                            rtbHistory.SelectionColor = Color.Blue;
+                            rtbHistory.SelectionFont = new Font(rtbHistory.Font, FontStyle.Underline);
+                            break;
+                    }
                 }
             }
             rtbHistory.ScrollToCaret();
-            Logger.Log($"Displayed history for {contact}");
+            Logger.Log($"Displayed history for {contact} (Messages: {messages.Count})");
         }
-
         private void LoadAllHistories()
         {
             var historyFiles = Directory.GetFiles(HistoryPath, "*.json");
@@ -855,10 +864,10 @@ namespace LocalMessenger
             {
                 var contact = Path.GetFileNameWithoutExtension(file);
                 contactsWithHistory.Add(contact);
-                historyManager.LoadMessages(contact);
+                var messages = historyManager.LoadMessages(contact);
+                Logger.Log($"Loaded history for {contact}: {messages.Count} messages");
             }
 
-            // Добавляем контакты с историей в lstContacts
             foreach (var contact in contactsWithHistory)
             {
                 if (contact != myLogin && !lstContacts.Items.Cast<ListViewItem>().Any(i => i.Text.StartsWith(contact)))
@@ -1203,14 +1212,46 @@ namespace LocalMessenger
             UpdateSendControlsState();
             if (lstContacts.SelectedItems.Count > 0)
             {
-                var contact = lstContacts.SelectedItems[0].Text.Split(' ')[0];
-                UpdateHistoryDisplay(contact);
-                blinkingContacts.Remove(contact);
-                Logger.Log($"Selected contact: {lstContacts.SelectedItems[0].Text}");
+                var selectedText = lstContacts.SelectedItems[0].Text;
+                var contact = ExtractLoginFromContactText(selectedText);
+                if (!string.IsNullOrEmpty(contact))
+                {
+                    UpdateHistoryDisplay(contact);
+                    blinkingContacts.Remove(contact);
+                    Logger.Log($"Selected contact: {selectedText}");
+                }
+                else
+                {
+                    Logger.Log($"Failed to extract login from: {selectedText}");
+                    MessageBox.Show("Ошибка: не удалось определить логин контакта.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
             else
             {
                 Logger.Log("No contact selected");
+            }
+        }
+
+        private string ExtractLoginFromContactText(string contactText)
+        {
+            try
+            {
+                // Предполагаем формат: "login (name, status)"
+                var parts = contactText.Split(' ');
+                if (parts.Length > 0)
+                {
+                    var login = parts[0].Trim();
+                    if (!string.IsNullOrWhiteSpace(login))
+                    {
+                        return login;
+                    }
+                }
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Error extracting login from '{contactText}': {ex.Message}");
+                return null;
             }
         }
 
