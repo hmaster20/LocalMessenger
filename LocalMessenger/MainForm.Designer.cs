@@ -59,7 +59,7 @@ namespace LocalMessenger
             this.lstContacts.HideSelection = false;
             this.lstContacts.Location = new System.Drawing.Point(0, 0);
             this.lstContacts.Name = "lstContacts";
-            this.lstContacts.Size = new System.Drawing.Size(253, 270);
+            this.lstContacts.Size = new System.Drawing.Size(267, 270);
             this.lstContacts.TabIndex = 0;
             this.lstContacts.UseCompatibleStateImageBehavior = false;
             this.lstContacts.View = System.Windows.Forms.View.List;
@@ -73,7 +73,7 @@ namespace LocalMessenger
             this.txtMessage.Location = new System.Drawing.Point(0, 210);
             this.txtMessage.Multiline = true;
             this.txtMessage.Name = "txtMessage";
-            this.txtMessage.Size = new System.Drawing.Size(507, 60);
+            this.txtMessage.Size = new System.Drawing.Size(537, 60);
             this.txtMessage.TabIndex = 1;
             this.txtMessage.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.txtMessage_KeyPress);
             // 
@@ -91,6 +91,7 @@ namespace LocalMessenger
             // 
             // btnCreateGroup
             // 
+            this.btnCreateGroup.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.btnCreateGroup.Location = new System.Drawing.Point(836, 206);
             this.btnCreateGroup.Name = "btnCreateGroup";
             this.btnCreateGroup.Size = new System.Drawing.Size(121, 23);
@@ -100,20 +101,22 @@ namespace LocalMessenger
             // 
             // btnSend
             // 
+            this.btnSend.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.btnSend.Enabled = false;
-            this.btnSend.Location = new System.Drawing.Point(792, 287);
+            this.btnSend.Location = new System.Drawing.Point(836, 287);
             this.btnSend.Name = "btnSend";
-            this.btnSend.Size = new System.Drawing.Size(100, 23);
+            this.btnSend.Size = new System.Drawing.Size(121, 23);
             this.btnSend.TabIndex = 4;
             this.btnSend.Text = "Send";
             this.btnSend.Click += new System.EventHandler(this.btnSend_Click);
             // 
             // btnSendFile
             // 
+            this.btnSendFile.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.btnSendFile.Enabled = false;
-            this.btnSendFile.Location = new System.Drawing.Point(853, 316);
+            this.btnSendFile.Location = new System.Drawing.Point(838, 322);
             this.btnSendFile.Name = "btnSendFile";
-            this.btnSendFile.Size = new System.Drawing.Size(100, 23);
+            this.btnSendFile.Size = new System.Drawing.Size(119, 23);
             this.btnSendFile.TabIndex = 5;
             this.btnSendFile.Text = "Send File";
             this.btnSendFile.Click += new System.EventHandler(this.btnSendFile_Click);
@@ -129,6 +132,7 @@ namespace LocalMessenger
             // 
             // btnOpenSettingsFolder
             // 
+            this.btnOpenSettingsFolder.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.btnOpenSettingsFolder.Location = new System.Drawing.Point(836, 114);
             this.btnOpenSettingsFolder.Name = "btnOpenSettingsFolder";
             this.btnOpenSettingsFolder.Size = new System.Drawing.Size(121, 26);
@@ -138,6 +142,7 @@ namespace LocalMessenger
             // 
             // btnDeleteAccount
             // 
+            this.btnDeleteAccount.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.btnDeleteAccount.Location = new System.Drawing.Point(838, 50);
             this.btnDeleteAccount.Name = "btnDeleteAccount";
             this.btnDeleteAccount.Size = new System.Drawing.Size(119, 26);
@@ -175,12 +180,13 @@ namespace LocalMessenger
             this.rtbHistory.Location = new System.Drawing.Point(0, 0);
             this.rtbHistory.Name = "rtbHistory";
             this.rtbHistory.ReadOnly = true;
-            this.rtbHistory.Size = new System.Drawing.Size(507, 210);
+            this.rtbHistory.Size = new System.Drawing.Size(537, 210);
             this.rtbHistory.TabIndex = 10;
             this.rtbHistory.Text = "";
             // 
             // btnOpenSettings
             // 
+            this.btnOpenSettings.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.btnOpenSettings.Location = new System.Drawing.Point(836, 146);
             this.btnOpenSettings.Name = "btnOpenSettings";
             this.btnOpenSettings.Size = new System.Drawing.Size(121, 26);
@@ -190,6 +196,7 @@ namespace LocalMessenger
             // 
             // btnOpenLogFile
             // 
+            this.btnOpenLogFile.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.btnOpenLogFile.Location = new System.Drawing.Point(836, 82);
             this.btnOpenLogFile.Name = "btnOpenLogFile";
             this.btnOpenLogFile.Size = new System.Drawing.Size(119, 26);
@@ -200,6 +207,9 @@ namespace LocalMessenger
             // 
             // sContainer
             // 
+            this.sContainer.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.sContainer.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
             this.sContainer.Location = new System.Drawing.Point(14, 75);
             this.sContainer.Name = "sContainer";
@@ -212,8 +222,8 @@ namespace LocalMessenger
             // 
             this.sContainer.Panel2.Controls.Add(this.rtbHistory);
             this.sContainer.Panel2.Controls.Add(this.txtMessage);
-            this.sContainer.Size = new System.Drawing.Size(772, 274);
-            this.sContainer.SplitterDistance = 257;
+            this.sContainer.Size = new System.Drawing.Size(816, 274);
+            this.sContainer.SplitterDistance = 271;
             this.sContainer.TabIndex = 13;
             // 
             // MainForm
