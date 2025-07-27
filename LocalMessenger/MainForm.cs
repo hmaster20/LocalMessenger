@@ -98,17 +98,51 @@ namespace LocalMessenger
                         cmbStatus.SelectedItem = myStatus;
 
                         // Запрашиваем пароль для загрузки ключа
-                        using (var passwordForm = new PasswordForm())
+                        //using (var passwordForm = new PasswordForm())
+                        //{
+                        //    if (passwordForm.ShowDialog() == DialogResult.OK)
+                        //    {
+                        //        encryptionKey = KeyManager.LoadKey(passwordForm.Password);
+                        //    }
+                        //    else
+                        //    {
+                        //        Logger.Log("Password entry cancelled. Exiting application.");
+                        //        Application.Exit();
+                        //    }
+                        //}
+
+                        int attempts = 3;
+                        while (attempts > 0)
                         {
-                            if (passwordForm.ShowDialog() == DialogResult.OK)
+                            using (var passwordForm = new PasswordForm())
                             {
-                                encryptionKey = KeyManager.LoadKey(passwordForm.Password);
+                                if (passwordForm.ShowDialog() == DialogResult.OK)
+                                {
+                                    try
+                                    {
+                                        encryptionKey = KeyManager.LoadKey(passwordForm.Password);
+                                        break;
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Logger.Log($"Invalid password: {ex.Message}");
+                                        MessageBox.Show("Invalid password. Please try again.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                        attempts--;
+                                    }
+                                }
+                                else
+                                {
+                                    Logger.Log("Password entry cancelled. Exiting application.");
+                                    Application.Exit();
+                                    return;
+                                }
                             }
-                            else
-                            {
-                                Logger.Log("Password entry cancelled. Exiting application.");
-                                Application.Exit();
-                            }
+                        }
+                        if (attempts == 0)
+                        {
+                            Logger.Log("Too many incorrect password attempts. Exiting application.");
+                            MessageBox.Show("Too many incorrect password attempts.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            Application.Exit();
                         }
 
                         UpdateStatusAndIP();
