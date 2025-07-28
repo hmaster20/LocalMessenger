@@ -3,5 +3,7 @@
 packages
 LocalMessenger/obj/
 LocalMessenger/bin/
+LocalMessenger.Tests/obj/
+LocalMessenger.Tests/bin/
 unused
 DOC/
