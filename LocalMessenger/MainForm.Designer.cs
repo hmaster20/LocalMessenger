@@ -12,8 +12,6 @@ namespace LocalMessenger
         private System.Windows.Forms.Button btnSend;
         private System.Windows.Forms.Button btnSendFile;
         private System.Windows.Forms.Button btnExit;
-        private System.Windows.Forms.Button btnOpenSettingsFolder;
-        private System.Windows.Forms.Button btnDeleteAccount;
         private System.Windows.Forms.Label lblStatus;
         private System.Windows.Forms.Label lblIP;
         private System.Windows.Forms.Label lblUserInfo;
@@ -37,14 +35,11 @@ namespace LocalMessenger
             this.btnSend = new System.Windows.Forms.Button();
             this.btnSendFile = new System.Windows.Forms.Button();
             this.btnExit = new System.Windows.Forms.Button();
-            this.btnOpenSettingsFolder = new System.Windows.Forms.Button();
-            this.btnDeleteAccount = new System.Windows.Forms.Button();
             this.lblStatus = new System.Windows.Forms.Label();
             this.lblIP = new System.Windows.Forms.Label();
             this.lblUserInfo = new System.Windows.Forms.Label();
             this.rtbHistory = new System.Windows.Forms.RichTextBox();
             this.btnOpenSettings = new System.Windows.Forms.Button();
-            this.btnOpenLogFile = new System.Windows.Forms.Button();
             this.sContainer = new System.Windows.Forms.SplitContainer();
             ((System.ComponentModel.ISupportInitialize)(this.sContainer)).BeginInit();
             this.sContainer.Panel1.SuspendLayout();
@@ -130,16 +125,6 @@ namespace LocalMessenger
             this.btnExit.Text = "Exit";
             this.btnExit.Click += new System.EventHandler(this.btnExit_Click);
             // 
-            // btnOpenSettingsFolder
-            // 
-            this.btnOpenSettingsFolder.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnOpenSettingsFolder.Location = new System.Drawing.Point(836, 114);
-            this.btnOpenSettingsFolder.Name = "btnOpenSettingsFolder";
-            this.btnOpenSettingsFolder.Size = new System.Drawing.Size(121, 26);
-            this.btnOpenSettingsFolder.TabIndex = 10;
-            this.btnOpenSettingsFolder.Text = "Settings Folder";
-            this.btnOpenSettingsFolder.Click += new System.EventHandler(this.btnOpenSettingsFolder_Click);
-            // 
             // lblStatus
             // 
             this.lblStatus.Location = new System.Drawing.Point(168, 12);
@@ -184,17 +169,6 @@ namespace LocalMessenger
             this.btnOpenSettings.Text = "Settings";
             this.btnOpenSettings.Click += new System.EventHandler(this.btnSettings_Click);
             // 
-            // btnOpenLogFile
-            // 
-            this.btnOpenLogFile.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnOpenLogFile.Location = new System.Drawing.Point(836, 82);
-            this.btnOpenLogFile.Name = "btnOpenLogFile";
-            this.btnOpenLogFile.Size = new System.Drawing.Size(119, 26);
-            this.btnOpenLogFile.TabIndex = 12;
-            this.btnOpenLogFile.Text = "Open LogFile";
-            this.btnOpenLogFile.UseVisualStyleBackColor = true;
-            this.btnOpenLogFile.Click += new System.EventHandler(this.btnViewLogs_Click);
-            // 
             // sContainer
             // 
             this.sContainer.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
@@ -220,15 +194,12 @@ namespace LocalMessenger
             // 
             this.ClientSize = new System.Drawing.Size(965, 357);
             this.Controls.Add(this.sContainer);
-            this.Controls.Add(this.btnOpenLogFile);
             this.Controls.Add(this.cmbStatus);
             this.Controls.Add(this.btnCreateGroup);
             this.Controls.Add(this.btnSend);
             this.Controls.Add(this.btnSendFile);
             this.Controls.Add(this.btnExit);
             this.Controls.Add(this.btnOpenSettings);
-            this.Controls.Add(this.btnOpenSettingsFolder);
-            this.Controls.Add(this.btnDeleteAccount);
             this.Controls.Add(this.lblStatus);
             this.Controls.Add(this.lblIP);
             this.Controls.Add(this.lblUserInfo);
@@ -245,7 +216,6 @@ namespace LocalMessenger
         }
 
         private System.Windows.Forms.Button btnOpenSettings;
-        private System.Windows.Forms.Button btnOpenLogFile;
         private System.Windows.Forms.SplitContainer sContainer;
     }
 }

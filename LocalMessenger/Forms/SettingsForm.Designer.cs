@@ -27,7 +27,6 @@
             this.btnSave = new System.Windows.Forms.Button();
             this.btnDeleteAccount = new System.Windows.Forms.Button();
             this.btnOpenLogFile = new System.Windows.Forms.Button();
-            this.btnOpenSettings = new System.Windows.Forms.Button();
             this.btnOpenSettingsFolder = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
@@ -140,15 +139,7 @@
             this.btnOpenLogFile.TabIndex = 15;
             this.btnOpenLogFile.Text = "Open LogFile";
             this.btnOpenLogFile.UseVisualStyleBackColor = true;
-            // 
-            // btnOpenSettings
-            // 
-            this.btnOpenSettings.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnOpenSettings.Location = new System.Drawing.Point(621, 111);
-            this.btnOpenSettings.Name = "btnOpenSettings";
-            this.btnOpenSettings.Size = new System.Drawing.Size(121, 26);
-            this.btnOpenSettings.TabIndex = 13;
-            this.btnOpenSettings.Text = "Settings";
+            this.btnOpenLogFile.Click += new System.EventHandler(this.btnOpenLogFile_Click);
             // 
             // btnOpenSettingsFolder
             // 
@@ -158,6 +149,7 @@
             this.btnOpenSettingsFolder.Size = new System.Drawing.Size(121, 26);
             this.btnOpenSettingsFolder.TabIndex = 14;
             this.btnOpenSettingsFolder.Text = "Settings Folder";
+            this.btnOpenSettingsFolder.Click += new System.EventHandler(this.btnOpenSettingsFolder_Click);
             // 
             // SettingsForm
             // 
@@ -165,7 +157,6 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(781, 382);
             this.Controls.Add(this.btnOpenLogFile);
-            this.Controls.Add(this.btnOpenSettings);
             this.Controls.Add(this.btnOpenSettingsFolder);
             this.Controls.Add(this.btnDeleteAccount);
             this.Controls.Add(this.btnSave);
@@ -200,7 +191,6 @@
         private System.Windows.Forms.Button btnSave;
         private System.Windows.Forms.Button btnDeleteAccount;
         private System.Windows.Forms.Button btnOpenLogFile;
-        private System.Windows.Forms.Button btnOpenSettings;
         private System.Windows.Forms.Button btnOpenSettingsFolder;
     }
 }

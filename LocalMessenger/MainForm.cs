@@ -19,10 +19,10 @@ namespace LocalMessenger
 {
     public partial class MainForm : Form
     {
-        //private string AppDataPath;
-        //private string AttachmentsPath;
-        //private string HistoryPath;
-        //private string SettingsFile;
+        //private string Paths.GetAppDataPath();
+        //private string Paths.GetAttachmentsPath();
+        //private string Paths.GetHistoryPath();
+        //private string Paths.GetSettingsFile();
 
         private UdpClient udpListener;
         private UdpClient udpSender;
@@ -61,13 +61,11 @@ namespace LocalMessenger
             InitializeEmojiMenu();
             Logger.Log($"Application started. Session initialized for IP: {myIP}");
 
-            Paths.InitPaths();
-            Paths.InitDirectories();
+            InitializeAppEnvironment();
 
             LoadSettingsAndKey();
             InitializeNetwork();
-            historyManager = new HistoryManager(AppDataPath, encryptionKey);
-            bufferManager = new MessageBufferManager(AppDataPath);
+
             new TrayIconManager(this, appIcon); // Передаём иконку в TrayIconManager
             AddCurrentUserToContacts();
             StartUdpBroadcast();
@@ -80,13 +78,21 @@ namespace LocalMessenger
             ConfigureControls();
         }
 
+        private void InitializeAppEnvironment()
+        {
+            Paths.InitPaths();
+            Paths.InitDirectories();
+            historyManager = new HistoryManager(Paths.GetAppDataPath(), encryptionKey);
+            bufferManager = new MessageBufferManager(Paths.GetAppDataPath());
+        }
+
         private void LoadSettingsAndKey()
         {
-            if (File.Exists(SettingsFile))
+            if (File.Exists(Paths.GetSettingsFile()))
             {
                 try
                 {
-                    var json = File.ReadAllText(SettingsFile);
+                    var json = File.ReadAllText(Paths.GetSettingsFile());
                     if (string.IsNullOrWhiteSpace(json))
                     {
                         Logger.Log("Settings file is empty. Showing registration form.");
@@ -261,7 +267,7 @@ namespace LocalMessenger
                     continue;
                 }
 
-                var cachedFilePath = Path.Combine(AttachmentsPath, $"{Guid.NewGuid()}_{fileName}");
+                var cachedFilePath = Path.Combine(Paths.GetAttachmentsPath(), $"{Guid.NewGuid()}_{fileName}");
                 File.Copy(filePath, cachedFilePath);
 
                 byte[] sharedKey = null;
@@ -717,7 +723,7 @@ namespace LocalMessenger
                         var sender = parts[1];
                         var fileName = parts[2];
                         var fileSize = long.Parse(parts[3]);
-                        var filePath = Path.Combine(AttachmentsPath, $"{Guid.NewGuid()}_{fileName}");
+                        var filePath = Path.Combine(Paths.GetAttachmentsPath(), $"{Guid.NewGuid()}_{fileName}");
                         var messageType = parts[0].StartsWith("IMAGE") ? MessageType.Image : MessageType.File;
 
                         if (!isChunked)
@@ -834,7 +840,7 @@ namespace LocalMessenger
 
         private void UpdateHistory(string contact, string content, MessageType type, bool isReceived)
         {
-            var msg = new Message
+            var msg = new Helpers.Message
             {
                 Sender = isReceived ? contact : myLogin,
                 Content = content,
@@ -895,7 +901,7 @@ namespace LocalMessenger
         }
         private void LoadAllHistories()
         {
-            var historyFiles = Directory.GetFiles(HistoryPath, "*.json");
+            var historyFiles = Directory.GetFiles(Paths.GetHistoryPath(), "*.json");
             var contactsWithHistory = new HashSet<string>();
 
             foreach (var file in historyFiles)
@@ -1343,7 +1349,7 @@ namespace LocalMessenger
             };
             try
             {
-                File.WriteAllText(SettingsFile, Newtonsoft.Json.JsonConvert.SerializeObject(settings));
+                File.WriteAllText(Paths.GetSettingsFile(), Newtonsoft.Json.JsonConvert.SerializeObject(settings));
                 Logger.Log("Settings saved successfully");
             }
             catch (Exception ex)
@@ -1361,38 +1367,10 @@ namespace LocalMessenger
             Application.Exit();
         }
 
-        private void btnOpenSettingsFolder_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                Logger.Log("Opening settings folder");
-                Process.Start("explorer.exe", AppDataPath);
-            }
-            catch (Exception ex)
-            {
-                Logger.Log($"Error opening settings folder: {ex.Message}");
-                MessageBox.Show($"Error opening settings folder: {ex.Message}");
-            }
-        }
-
-        private void btnViewLogs_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                var logFile = Path.Combine(AppDataPath, "logs", "log.txt");
-                Process.Start("notepad.exe", logFile);
-                Logger.Log("Opened log file successfully");
-            }
-            catch (Exception ex)
-            {
-                Logger.Log($"Error opening log file: {ex.Message}");
-                MessageBox.Show($"Failed to open log file: {ex.Message}");
-            }
-        }
 
         private void btnSettings_Click(object sender, EventArgs e)
         {
-            using (var form = new SettingsForm(myLogin, myName, AppDataPath))
+            using (var form = new SettingsForm(myLogin, myName))
             {
                 if (form.ShowDialog() == DialogResult.OK)
                 {

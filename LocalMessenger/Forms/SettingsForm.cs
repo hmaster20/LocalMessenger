@@ -6,6 +6,7 @@ using System.Net.NetworkInformation;
 using System.Diagnostics;
 using System.Windows.Forms;
 using System.Threading.Tasks;
+using LocalMessenger.Helpers;
 
 namespace LocalMessenger.Forms
 {
@@ -14,14 +15,13 @@ namespace LocalMessenger.Forms
         public string NewLogin { get; private set; }
         public string NewName { get; private set; }
         public string SelectedIP { get; private set; }
-        private readonly string _appDataPath;
+
         private readonly string _logFile;
 
-        public SettingsForm(string currentLogin, string currentName, string appDataPath)
+        public SettingsForm(string currentLogin, string currentName)
         {
             InitializeComponent();
-            _appDataPath = appDataPath;
-            _logFile = Path.Combine(_appDataPath, "logs", "log.txt");
+            _logFile = Path.Combine(Paths.GetAppDataPath(), "logs", "log.txt");
             NewLogin = currentLogin;
             NewName = currentName;
             txtLogin.Text = currentLogin;
@@ -199,9 +199,9 @@ namespace LocalMessenger.Forms
             {
                 try
                 {
-                    if (File.Exists(SettingsFile))
+                    if (File.Exists(Paths.GetSettingsFile()))
                     {
-                        File.Delete(SettingsFile);
+                        File.Delete(Paths.GetSettingsFile());
                         Logger.Log("Account settings deleted successfully");
                     }
                     Logger.Log("Account deletion confirmed");
@@ -219,5 +219,38 @@ namespace LocalMessenger.Forms
                 Logger.Log("Account deletion cancelled");
             }
         }
+
+        private void btnOpenLogFile_Click(object sender, EventArgs e)
+        {
+      
+                try
+                {
+                    var logFile = Path.Combine(Paths.GetAppDataPath(), "logs", "log.txt");
+                    Process.Start("notepad.exe", logFile);
+                    Logger.Log("Opened log file successfully");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log($"Error opening log file: {ex.Message}");
+                    MessageBox.Show($"Failed to open log file: {ex.Message}");
+                }
+            
+        }
+
+        private void btnOpenSettingsFolder_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                Logger.Log("Opening settings folder");
+                Process.Start("explorer.exe", Paths.GetAppDataPath());
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Error opening settings folder: {ex.Message}");
+                MessageBox.Show($"Error opening settings folder: {ex.Message}");
+            }
+        }
+
+
     }
 }
