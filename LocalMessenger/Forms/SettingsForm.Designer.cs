@@ -1,4 +1,4 @@
-﻿namespace LocalMessenger
+﻿namespace LocalMessenger.Forms
 {
     partial class SettingsForm
     {
@@ -25,6 +25,10 @@
             this.chkLiveLogs = new System.Windows.Forms.CheckBox();
             this.btnOpenLogs = new System.Windows.Forms.Button();
             this.btnSave = new System.Windows.Forms.Button();
+            this.btnDeleteAccount = new System.Windows.Forms.Button();
+            this.btnOpenLogFile = new System.Windows.Forms.Button();
+            this.btnOpenSettings = new System.Windows.Forms.Button();
+            this.btnOpenSettingsFolder = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // txtLogin
@@ -117,11 +121,53 @@
             this.btnSave.Text = "Save";
             this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
             // 
+            // btnDeleteAccount
+            // 
+            this.btnDeleteAccount.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnDeleteAccount.Location = new System.Drawing.Point(621, 10);
+            this.btnDeleteAccount.Name = "btnDeleteAccount";
+            this.btnDeleteAccount.Size = new System.Drawing.Size(119, 26);
+            this.btnDeleteAccount.TabIndex = 12;
+            this.btnDeleteAccount.Text = "Delete Account";
+            this.btnDeleteAccount.Click += new System.EventHandler(this.btnDeleteAccount_Click);
+            // 
+            // btnOpenLogFile
+            // 
+            this.btnOpenLogFile.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnOpenLogFile.Location = new System.Drawing.Point(621, 47);
+            this.btnOpenLogFile.Name = "btnOpenLogFile";
+            this.btnOpenLogFile.Size = new System.Drawing.Size(119, 26);
+            this.btnOpenLogFile.TabIndex = 15;
+            this.btnOpenLogFile.Text = "Open LogFile";
+            this.btnOpenLogFile.UseVisualStyleBackColor = true;
+            // 
+            // btnOpenSettings
+            // 
+            this.btnOpenSettings.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnOpenSettings.Location = new System.Drawing.Point(621, 111);
+            this.btnOpenSettings.Name = "btnOpenSettings";
+            this.btnOpenSettings.Size = new System.Drawing.Size(121, 26);
+            this.btnOpenSettings.TabIndex = 13;
+            this.btnOpenSettings.Text = "Settings";
+            // 
+            // btnOpenSettingsFolder
+            // 
+            this.btnOpenSettingsFolder.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnOpenSettingsFolder.Location = new System.Drawing.Point(621, 79);
+            this.btnOpenSettingsFolder.Name = "btnOpenSettingsFolder";
+            this.btnOpenSettingsFolder.Size = new System.Drawing.Size(121, 26);
+            this.btnOpenSettingsFolder.TabIndex = 14;
+            this.btnOpenSettingsFolder.Text = "Settings Folder";
+            // 
             // SettingsForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(560, 382);
+            this.ClientSize = new System.Drawing.Size(781, 382);
+            this.Controls.Add(this.btnOpenLogFile);
+            this.Controls.Add(this.btnOpenSettings);
+            this.Controls.Add(this.btnOpenSettingsFolder);
+            this.Controls.Add(this.btnDeleteAccount);
             this.Controls.Add(this.btnSave);
             this.Controls.Add(this.btnOpenLogs);
             this.Controls.Add(this.chkLiveLogs);
@@ -152,5 +198,9 @@
         private System.Windows.Forms.CheckBox chkLiveLogs;
         private System.Windows.Forms.Button btnOpenLogs;
         private System.Windows.Forms.Button btnSave;
+        private System.Windows.Forms.Button btnDeleteAccount;
+        private System.Windows.Forms.Button btnOpenLogFile;
+        private System.Windows.Forms.Button btnOpenSettings;
+        private System.Windows.Forms.Button btnOpenSettingsFolder;
     }
 }

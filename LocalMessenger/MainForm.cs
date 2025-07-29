@@ -12,15 +12,17 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using LocalMessenger.Forms;
+using LocalMessenger.Helpers;
 
 namespace LocalMessenger
 {
     public partial class MainForm : Form
     {
-        private string AppDataPath;
-        private string AttachmentsPath;
-        private string HistoryPath;
-        private string SettingsFile;
+        //private string AppDataPath;
+        //private string AttachmentsPath;
+        //private string HistoryPath;
+        //private string SettingsFile;
 
         private UdpClient udpListener;
         private UdpClient udpSender;
@@ -58,8 +60,10 @@ namespace LocalMessenger
             InitializeStatusIcons();
             InitializeEmojiMenu();
             Logger.Log($"Application started. Session initialized for IP: {myIP}");
-            InitializePaths();
-            InitializeDirectories();
+
+            Paths.InitPaths();
+            Paths.InitDirectories();
+
             LoadSettingsAndKey();
             InitializeNetwork();
             historyManager = new HistoryManager(AppDataPath, encryptionKey);
@@ -362,23 +366,6 @@ namespace LocalMessenger
                 e.SuppressKeyPress = true;
                 btnSend_Click(sender, e);
             }
-        }
-
-        private void InitializePaths()
-        {
-            AppDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "LocalMessenger");
-            AttachmentsPath = Path.Combine(AppDataPath, "attachments");
-            HistoryPath = Path.Combine(AppDataPath, "history");
-            SettingsFile = Path.Combine(AppDataPath, "settings.json");
-            Logger.Log($"Paths initialized: AppData={AppDataPath}, Settings={SettingsFile}");
-        }
-
-        private void InitializeDirectories()
-        {
-            Directory.CreateDirectory(AppDataPath);
-            Directory.CreateDirectory(AttachmentsPath);
-            Directory.CreateDirectory(HistoryPath);
-            Logger.Log("Directories created or verified");
         }
 
         private void ShowRegistrationForm()
@@ -1385,36 +1372,6 @@ namespace LocalMessenger
             {
                 Logger.Log($"Error opening settings folder: {ex.Message}");
                 MessageBox.Show($"Error opening settings folder: {ex.Message}");
-            }
-        }
-
-        private void btnDeleteAccount_Click(object sender, EventArgs e)
-        {
-            Logger.Log("Delete account initiated");
-            var result = MessageBox.Show("Are you sure you want to delete your account? This will remove all user settings.",
-                "Confirm Deletion", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
-            if (result == DialogResult.OK)
-            {
-                try
-                {
-                    if (File.Exists(SettingsFile))
-                    {
-                        File.Delete(SettingsFile);
-                        Logger.Log("Account settings deleted successfully");
-                    }
-                    Logger.Log("Account deletion confirmed");
-                    MessageBox.Show("Account deleted successfully");
-                    Application.Exit();
-                }
-                catch (Exception ex)
-                {
-                    Logger.Log($"Error deleting account: {ex.Message}");
-                    MessageBox.Show($"Error deleting account: {ex.Message}");
-                }
-            }
-            else
-            {
-                Logger.Log("Account deletion cancelled");
             }
         }
 

@@ -7,7 +7,7 @@ using System.Diagnostics;
 using System.Windows.Forms;
 using System.Threading.Tasks;
 
-namespace LocalMessenger
+namespace LocalMessenger.Forms
 {
     public partial class SettingsForm : Form
     {
@@ -188,6 +188,36 @@ namespace LocalMessenger
             }
             this.DialogResult = DialogResult.OK;
             this.Close();
+        }
+
+        private void btnDeleteAccount_Click(object sender, EventArgs e)
+        {
+            Logger.Log("Delete account initiated");
+            var result = MessageBox.Show("Are you sure you want to delete your account? This will remove all user settings.",
+                "Confirm Deletion", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
+            if (result == DialogResult.OK)
+            {
+                try
+                {
+                    if (File.Exists(SettingsFile))
+                    {
+                        File.Delete(SettingsFile);
+                        Logger.Log("Account settings deleted successfully");
+                    }
+                    Logger.Log("Account deletion confirmed");
+                    MessageBox.Show("Account deleted successfully");
+                    Application.Exit();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log($"Error deleting account: {ex.Message}");
+                    MessageBox.Show($"Error deleting account: {ex.Message}");
+                }
+            }
+            else
+            {
+                Logger.Log("Account deletion cancelled");
+            }
         }
     }
 }

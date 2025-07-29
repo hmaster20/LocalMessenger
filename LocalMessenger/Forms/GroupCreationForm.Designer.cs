@@ -1,4 +1,4 @@
-﻿namespace LocalMessenger
+﻿namespace LocalMessenger.Forms
 {
     partial class GroupCreationForm
     {

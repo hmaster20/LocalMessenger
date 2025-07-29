@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Windows.Forms;
 
-namespace LocalMessenger
+namespace LocalMessenger.Forms
 {
     public partial class RegistrationForm : Form
     {

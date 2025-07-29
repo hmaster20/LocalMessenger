@@ -1,6 +1,6 @@
 ﻿using System.Windows.Forms;
 
-namespace LocalMessenger
+namespace LocalMessenger.Forms
 {
     partial class ProgressForm
     {

@@ -140,16 +140,6 @@ namespace LocalMessenger
             this.btnOpenSettingsFolder.Text = "Settings Folder";
             this.btnOpenSettingsFolder.Click += new System.EventHandler(this.btnOpenSettingsFolder_Click);
             // 
-            // btnDeleteAccount
-            // 
-            this.btnDeleteAccount.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnDeleteAccount.Location = new System.Drawing.Point(838, 50);
-            this.btnDeleteAccount.Name = "btnDeleteAccount";
-            this.btnDeleteAccount.Size = new System.Drawing.Size(119, 26);
-            this.btnDeleteAccount.TabIndex = 11;
-            this.btnDeleteAccount.Text = "Delete Account";
-            this.btnDeleteAccount.Click += new System.EventHandler(this.btnDeleteAccount_Click);
-            // 
             // lblStatus
             // 
             this.lblStatus.Location = new System.Drawing.Point(168, 12);
